@@ -1,0 +1,13 @@
+# codex의 로컬 작업 디렉터리는 추적하지 않는다.
+# 예외: 마켓플레이스 매니페스트와 개발용 스킬.
+/.agents/*
+!/.agents/plugins/
+/.agents/plugins/*
+!/.agents/plugins/marketplace.json
+!/.agents/skills/
+
+/.claude/
+/.skywork/
+
+__pycache__/
+*.pyc

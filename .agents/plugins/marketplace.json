@@ -1,0 +1,16 @@
+{
+  "name": "liverock",
+  "interface": {
+    "displayName": "LiveRock Plugins"
+  },
+  "plugins": [
+    {
+      "name": "liverock-toolkit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/liverock-toolkit"
+      },
+      "category": "workflow"
+    }
+  ]
+}
