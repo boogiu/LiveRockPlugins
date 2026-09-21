@@ -110,7 +110,8 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
 
 ## 역할별 thinking 등급
 
-표의 각 행에 적힌 `low`·`medium`·`high`·`xhigh`가 **그 역할의 thinking 등급**이다. 등급은
+「세트」 표의 각 행에 적힌 `low`·`medium`·`high`·`xhigh`가 **그 역할의 thinking 등급**이다.
+등급은 세트마다 다르므로, 고르는 세트의 열을 본다. 등급은
 모델이 아니라 역할에 붙는다. 모델이 하나뿐인 환경에서는 역할 사이의 차이가 오직 이 등급과
 브리핑으로만 난다.
 
@@ -166,19 +167,28 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
 
 ## 세트
 
-여덟 역할을 한 번에 등록할 때 쓰는 묶음이다. **모델 열이 없는 것이 의도다** — 모델은 해석
-절차가 조회 결과로 정한다.
+여덟 역할을 한 번에 등록할 때 쓰는 묶음이다. **세트는 둘이다** — 저가형과 고가형. 제한
+플랜에서 최상위 모델을 여러 자리에 두면 쿼터가 먼저 마르므로, 같은 역할 구성을 두 가지
+비용대로 나눠 둔다. 실제 적용값은 `assets/research-presets-lite.json`과
+`assets/research-presets-pro.json`에 있고 이 표가 그 근거다.
 
-| id | name | 요구 성능 등급 | thinking | 권한 등급 | icon / color |
+성능 등급은 **모델 이름이 아니라 등급**으로 적는다. 모델 ID는 해석 절차가 조회 결과로 정한다.
+
+| id | name | 저가형 등급 / thinking | 고가형 등급 / thinking | 권한 등급 | icon / color |
 | --- | --- | --- | --- | --- | --- |
-| `team-lead` | 팀장 | 고성능 | `high` | 읽기·확인 | compass / violet |
-| `literature-search` | 문헌 탐색 | 저성능 | `low` | 명령 전권 | search / sky |
-| `paper-reading` | 논문 정독 | 고성능 | `high` | 파일 작성 | book / indigo |
-| `data-prep` | 데이터 정리 | 저성능 | `low` | 파일 작성 | database / teal |
-| `calculation-modeling` | 계산·모델링 | 고성능 | `high` | 파일 작성 | cpu / blue |
-| `visualization` | 시각화 | 중급 | `medium` | 파일 작성 | palette / pink |
-| `experiment-plan` | 실험 계획 | 고성능 | `xhigh` | 파일 작성 | flask / amber |
-| `independent-check` | 독립 검토 | 고성능 | `high` | 읽기·확인 | eye / emerald |
+| `team-lead` | 팀장 | 고성능 / `medium` | 고성능 / `high` | 읽기·확인 | compass / violet |
+| `literature-search` | 문헌 탐색 | 저성능 / `low` | 중급 / `low` | 명령 전권 | search / sky |
+| `paper-reading` | 논문 정독 | 중급 / `medium` | 고성능 / `high` | 파일 작성 | book / indigo |
+| `data-prep` | 데이터 정리 | 저성능 / `low` | 중급 / `medium` | 파일 작성 | database / teal |
+| `calculation-modeling` | 계산·모델링 | 중급 / `high` | 고성능 / `high` | 파일 작성 | cpu / blue |
+| `visualization` | 시각화 | 중급 / `medium` | 중급 / `high` | 파일 작성 | palette / pink |
+| `experiment-plan` | 실험 계획 | 고성능 / `high` | 최상위 / `high` | 파일 작성 | flask / amber |
+| `independent-check` | 독립 검토 | 고성능 / `high` | 최상위 / `xhigh` | 읽기·확인 | eye / emerald |
+
+**두 세트가 갈리는 곳은 여덟 역할 중 여섯이다.** `visualization`과 `team-lead`만 같은 등급을
+쓰고 thinking이 다르다. 고가형이 최상위 모델을 쓰는 자리는 `experiment-plan`과
+`independent-check` 둘뿐이다 — 실험 계획은 쪼갤 수 없어 한 번에 맞아야 하고, 독립 검토는
+마지막 방어선이라 틀리면 뒤가 전부 무너진다.
 
 `icon`과 `color`는 표시 전용이라 라우팅에 영향을 주지 않는다. `icon`은 위의 키를 그대로
 쓰고, `color`는 프로필을 새로 만들 때 사용자에게 묻는 값이다.
@@ -188,12 +198,16 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
 `notes`는 프로필이 「이 작업을 맡아도 된다」고 밝히는 경계다. 조회된 `notes` 원문을 기준으로
 보존하며, 등록할 때 임의로 넓히거나 좁히지 않는다.
 
+**아래 근거에 적힌 등급과 thinking 값은 고가형 기준이다.** 저가형은 「세트」 표의 저가형 열을
+쓴다. 근거가 설명하는 것은 절대값이 아니라 **그 역할이 왜 다른 역할보다 높거나 낮은가**이고,
+그 상대 순서는 두 세트에서 같다.
+
 ### `team-lead` — 팀장
 
 - `notes`: `요청의 단계·담당 역할·실행 순서를 정하고 결과를 취합한다. 작업 자체는 담당 워커에게 맡기고 직접 착수하지 않는다.`
 - 권한 근거: 라우팅 판단과 취합만 하므로 파일을 직접 고칠 이유가 없다.
 - thinking 근거: 라우팅이 틀리면 그 아래 작업이 전부 어긋나고, 틀린 배정은 워커가 결과를 낼
-  때까지 드러나지 않는다. 고성능 등급과 `high`를 낮추지 않는다.
+  때까지 드러나지 않는다. 두 세트 모두 고성능 등급을 쓴다.
 
 ### `literature-search` — 문헌 탐색
 
@@ -235,15 +249,17 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
 
 - `notes`: `연구 질문을 마일스톤으로 나눠 변인·측정 항목·판정 기준·선행 조건을 정하고 확정·제안·미확인을 구분한다. 문헌 확인과 계산 근거는 담당 역할로 보낸다.`
 - 권한 근거: 계획을 파일로 남긴다. 사용자가 파일을 요청하지 않으면 대화로 제시한다.
-- thinking 근거: `xhigh`는 이 역할에만 있다. 변인 표의 누락이 측정 항목과 판정 기준까지 그대로
-  전파되고, 결과를 본 뒤에 기준을 고치면 원하는 결론에 맞춰 실험을 평가하게 된다.
+- thinking 근거: 변인 표의 누락이 측정 항목과 판정 기준까지 그대로 전파되고, 결과를 본 뒤에
+  기준을 고치면 원하는 결론에 맞춰 실험을 평가하게 된다. 쪼갤 수 없어 한 번에 맞아야 하므로
+  고가형에서 최상위 모델을 쓰는 두 자리 중 하나다.
 
 ### `independent-check` — 독립 검토
 
 - `notes`: `결과 파일을 원본 합격 기준과 대조해 단위·수지·출처·결론 근거를 판정하고 지적만 돌려준다. 대상을 고치지 않는다. 수정은 그것을 만든 역할이 맡는다.`
 - 권한 근거: 판정만 한다. 검토가 고치기 시작하면 그 수정은 아무도 검토하지 않은 것이 된다.
 - thinking 근거: 연구 결과는 그럴듯하게 틀릴 수 있고 그 틀림이 실행으로 드러나지 않는다.
-  물리적으로 가능한 범위인지, 출처에 정말 그 값이 있는지를 가리는 일이라 `high`를 준다.
+  물리적으로 가능한 범위인지, 출처에 정말 그 값이 있는지를 가리는 일이다. **`xhigh`가 붙는
+  유일한 자리**이고(고가형), 마지막 방어선이라 여기가 약하면 앞의 모든 검증이 무의미해진다.
 
 ### 팀장 표시 규칙
 
@@ -275,14 +291,15 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
   "provider": "codex",
   "model": "<조회된 1위 모델 ID>",
   "thinkingOptionId": "high",
-  "modeId": "auto-review",
+  "modeId": "auto",
   "icon": "book",
   "color": "indigo",
   "notes": "논문 하나의 출처·변인·분석 기법·결론을 원문 근거로 정리하고 확인하지 못한 것은 미확인으로 표시한다. 후보 검색은 문헌 탐색으로 보낸다."
 }
 ```
 
-같은 조회 결과에서 `experiment-plan`도 고성능이라 같은 1위 모델을 받지만 `thinkingOptionId`는
+위는 고가형 기준이다. 저가형이면 같은 역할이 중급 모델에 `thinkingOptionId`가 `medium`이
+된다. 고가형에서 `independent-check`는 같은 최상위 모델을 받지만 `thinkingOptionId`가
 `xhigh`다. **모델이 같아도 역할은 남는다** — 차이는 thinking 등급과 `notes`의 경계로 난다.
 `literature-search`는 저성능이라 3위 모델에 `low`가 붙는다. 어느 경로든 역할의 등급은 그대로
 유지되고, `ultra` 같은 최상위 값은 사용자가 명시적으로 요청할 때만 쓴다.
@@ -296,7 +313,7 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
 
 ## `notes` 길이
 
-`notes`가 Unicode 문자 160자를 넘으면 `../scripts/manage_profiles.py`의
+`notes`가 Unicode 문자 160자를 넘으면 `scripts/manage_profiles.py`의
 `MAX_NOTES_UNICODE_CHARS`(160자) 검사에 걸린다. 이것은 **경고이며 등록을 막는 오류가 아니다.**
 넘겼을 때는 한도를 늘리거나 문장을 잘라 저장하지 않고, 의미를 보존한 축약안을 사용자에게
 제시한다.

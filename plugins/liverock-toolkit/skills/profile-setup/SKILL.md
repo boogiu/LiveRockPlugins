@@ -123,8 +123,13 @@ MCP를 쓸 수 없으면 `paseo provider ls --json`과
 | 고가형 | [`assets/research-presets-pro.json`](assets/research-presets-pro.json)으로 같은 절차를 밟는다. |
 | 처음부터 설계 | 1-3 이하의 질문 루프를 탄다. |
 
-**기본 제안은 저가형이다.** 고가형은 선택지로만 보여 주고, 두 세트가 어디서 갈리는지를 한 줄로
-알린다 — 실험 계획과 독립 검토에 최상위 모델을 쓰는지가 차이다.
+**기본 제안은 저가형이다.** 고가형은 선택지로만 보여 주고, 두 세트가 어디서 갈리는지를 알린다 —
+여덟 역할 중 **여섯**이 다른 등급을 쓴다(`visualization`과 `team-lead`만 등급이 같고 thinking이
+다르다). 그중 **최상위 모델을 쓰는 자리는 실험 계획과 독립 검토 둘뿐이고**, 나머지 넷은 저가형이
+한 등급씩 낮은 모델을 쓴다. 등급별 값은 `references/presets.md`의 「세트」 표에 있다.
+
+차이를 "최상위 모델 두 자리"로만 알리지 않는다. 그렇게 말하면 나머지 여섯 역할이 같다고
+들리는데 실제로는 넷이 더 낮은 등급이고, 사용자가 그 사실을 모른 채 저가형을 고르게 된다.
 
 표를 보여 주기 직전에 스킬 디렉터리에서 아래를 실행하고, stdout을 표와 같은 화면에 **그대로**
 붙인다. ANSI를 떼거나 이름·hex만 다시 쓰지 않는다. 표의 `color` 칸에는 키 이름을 유지한다.
@@ -224,8 +229,7 @@ provider별 값으로 옮긴다. 등급 → `modeId` 매핑과 근거는 `refere
 `inspect_provider`의 `modes[].id`를 받아 제약이 큰 쪽부터 세 등급에 대응시킨다. `modes[].id`가
 아예 빈 배열이면(전용 어댑터 없이 CLI에만 붙는 provider) 세 등급으로 나눌 수 없고 조회에
 확인할 값이 없다 — `modeId` 키 자체를 생략한다. `defaultMode`나 `"default"`를 넣지 않는다.
-판별 기준과 처리는 `references/provider-modes.md`의 「전용 어댑터 없이 CLI에만 붙는
-provider」에 있다.
+판별 기준과 처리는 `references/provider-modes.md`의 「codex 밖의 provider」에 있다.
 
 **명령 전권은 한 번 더 확인한다.** claude `bypassPermissions`와 codex `full-access`는 승인
 프롬프트 없이 명령 실행과 네트워크 접근을 허용한다. 이 등급은 명령 실행 자체가 목적인

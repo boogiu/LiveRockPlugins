@@ -44,7 +44,7 @@ MCP를 쓸 수 없는 상황이면 CLI가 주는 것은 `defaultMode` 하나뿐�
 - **표를 값의 출처로 쓰지 않는다.** 등록 직전에 `inspect_provider`로 `modes[].id`를 받아
   거기 있는 값만 쓴다. 표와 다르면 조회 결과가 이긴다.
 - `defaultMode`는 `list_providers`가 함께 돌려주므로 거기서 읽는다. 추측해 적지 않는다.
-- `../scripts/manage_profiles.py`의 검증용 스냅샷 상수 `KNOWN_MODE_IDS`에도 codex의 세 값이
+- `scripts/manage_profiles.py`의 검증용 스냅샷 상수 `KNOWN_MODE_IDS`에도 codex의 세 값이
   들어 있다. 여기 없는 provider는 `defaultMode`가 아닌 모든 값에 `MODE_UNVERIFIED`
   **경고**를 받는다. 차단은 아니므로 `--apply`는 통과한다.
 
@@ -91,7 +91,7 @@ MCP를 쓸 수 없는 상황이면 CLI가 주는 것은 `defaultMode` 하나뿐�
 
 **`thinkingOptions`가 빈 배열인 모델에는 `thinkingOptionId`를 넣지 않는다. 필드 자체를
 생략한다.** 빈 문자열도 `off`도 안 된다. 그 모델에는 유효한 값이 하나도 없다. 빈 배열은 목록이
-있는 것이 아니라 **선언이 없는 것**으로 다룬다. `../scripts/manage_profiles.py`는 이때
+있는 것이 아니라 **선언이 없는 것**으로 다룬다. `scripts/manage_profiles.py`는 이때
 `THINKING_UNVERIFIED` 경고로 통과시키지만, 대조되지 않았을 뿐 그 모델이 값을 지원한다는 뜻은
 아니다. 그 모델이 역할의 등급을 지원한다고 판정하지도 않는다.
 
