@@ -36,7 +36,7 @@ flowchart LR
 | 스킬 | 하는 일 |
 |---|---|
 | [`research-orchestration`](plugins/liverock-toolkit/skills/research-orchestration/SKILL.md) | 연구 작업을 워커에 나눠 돌릴 때 쿼터 예산을 먼저 정하고, 작업을 쪼갤 단위를 고르고, 결과가 연구 산출물로서 맞는지 가릴 기준을 브리핑에 싣는다 |
-| [`agent-orchestration`](plugins/liverock-toolkit/skills/agent-orchestration/SKILL.md) | Paseo로 워커를 실제로 기동한다 — 전제 점검, `create_agent`에 넣을 값 구성, 워커 브리핑, 결과·실패 파일 규약. 레벨 판정·큐 운영·재시도·검토 분리는 아직 없다(이식 진행 중) |
+| [`agent-orchestration`](plugins/liverock-toolkit/skills/agent-orchestration/SKILL.md) | 작업 요청을 워커에 위임하고 취합하는 실행 절차 전체 — 위임 게이트, 레벨 판정, 활성·대기 큐, 역할과 `create_agent` 값 구성, 워커 브리핑, 검토 분리, 그래프 실행, 실패·재시도·재개 |
 | [`literature-analysis`](plugins/liverock-toolkit/skills/literature-analysis/SKILL.md) | OpenAlex API로 논문을 탐색하고(신뢰 사이트 표시), 고른 논문을 워커에 나눠 읽혀 변인·분석 기법·결론을 추측 없이 정리한다 |
 | [`experiment-planning`](plugins/liverock-toolkit/skills/experiment-planning/SKILL.md) | 화학공학 실험을 마일스톤 단위로 나누고 각 단계의 변인·측정 항목·판정 기준·선행 조건을 정한다 |
 
