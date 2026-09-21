@@ -1,0 +1,492 @@
+---
+name: profile-setup
+description: Paseo 앱의 에이전트 프로필(작업 종류별로 provider·model·mode·thinking을 묶어 둔 것)을 설계·등록·변경·조회·삭제하고, 설정 파일과 데몬에 들어간 값이 의도대로 기록됐는지 데이터 수준에서 확인한다. 팀장 에이전트는 위임할 때 각 프로필의 notes만 읽고 보낼 곳을 고르므로, 프로필 구성이 곧 라우팅 품질이다. "paseo 프로필 만들어줘", "에이전트 프로필 추가해줘", "프로필 변경해줘", "프로필 목록 보여줘", "등록된 프로필 뭐 있어", "프로필 지워줘", "프로필 전부 다시 구성해줘", "paseo 세팅", "라우팅용 프로필" 같은 요청이면 반드시 이 스킬을 쓴다. 목록만 보거나 하나만 지우는 단독 요청도 이 스킬이 처리한다. 등록된 프로필 값을 읽어 워커를 띄우는 쪽은 agent-orchestration이고, 프로필 자체를 만들고 고치는 쪽이 이 스킬이다.
+---
+
+# Paseo 에이전트 프로필 설정
+
+## 사용자에게 무엇을 보여주나
+
+아래 목록에 있는 것만 화면에 낸다. 기준은 "간결한가"가 아니라 "목록에 있는가"다.
+
+- 보여준다 — `--list`/`--detail` 출력, 색 견본 stdout, `[PASS|FAIL] id` 줄, 한 줄 확인
+  문구, 사용자에게 묻는 질문과 확인·승인 form, 실패.
+- 보여주지 않는다 — `scripts/` 아래 소스 코드(한 줄도), 실행한 명령줄과 인수, dry-run 등
+  결과 JSON, `--json`/`--modes-file`/config.json 내용, `--help` 출력, 이 문서의 문장·표·
+  스키마. 경로는 예외다 — 산출물 위치는 알려도 되고 내용은 안 된다.
+- 실패는 감추지 않는다 — 사용자가 하려던 동작 기준으로 무엇이 실패했는지, 오류 코드와 그
+  뜻 한 줄, 지금 고를 선택 하나, 백업·로그 등 원문 위치를 평문으로 전부 말한다.
+- 설명은 비프로그래머도 이해할 수 있게 쓴다. 쉬운 한국어로 짧게 쓰고, 왜 그렇게 판단했는지나 거친 과정은
+  쓰지 않는다. 필요한 것은 무엇이 일어났고 지금 무엇을 정할지뿐이다.
+- 사용자가 명령이나 JSON을 직접 요청했을 때 그 한 건만 보여준다. 다음 단계에 자동으로 이어
+  적용하지 않는다.
+
+Paseo 프로필은 사람이 정한 시작 구성 묶음이다. 팀장(오케스트레이터) 에이전트는 MCP
+`list_profiles`로 모든 프로필의 `notes`를 읽고 그중 하나를 골라 위임한다. `notes`가
+라우팅의 유일한 근거라는 점과 작성 규칙은 1-5에 있다.
+
+프로필은 자동으로 라우팅되지 않는다.
+
+프로필 값이 에이전트를 띄울 때 어디에 쓰이는지 물으면 MCP `list_profiles` 도구 설명과
+`create_agent` 스키마를 확인해 답한다. 대응을 외워서 답하지 않는다.
+
+설정 파일을 직접 고치지 않는다. 검증·백업·반영·reload·실패 시 롤백은 전부
+[`scripts/manage_profiles.py`](scripts/manage_profiles.py)가 처리한다. 전용
+`paseo profile ...` CLI 명령은 없다.
+
+`references/FORM.md`는 통째로 읽지 않는다. 처음 필요한 때 제목 줄과 줄 번호만 검색하고,
+지정된 `##` 제목부터 다음 `##` 제목 직전까지 읽는다. 마지막 절은 파일 끝까지 읽는다.
+이미 읽은 같은 절은 재사용한다.
+
+## 진입 분기
+
+**어느 갈래든 0절부터 시작한다** — 기존 프로필을 모르면 추가·변경·조회·삭제 어느 갈래도
+제대로 갈리지 않는다. 조회·삭제는 추가 흐름의 하위 단계가 아니라 단독 진입점이다.
+
+등록·변경·전체 교체 뒤의 확인은 설정 파일과 데몬에 들어간 값을 읽어 의도와 대조하는 데까지다
+(2절 「등록 뒤 확인」). 프로필이 목적(`notes`의 용도)대로 동작하는지 실제 작업을 시켜 품질로
+판정하는 일은 이 스킬의 범위가 아니다. 경계는 5절에 있다.
+
+사용자가 설계만 요청했다면 후보 프로필과 선택 근거만 제시하고 `--apply`를 실행하지 않는다.
+`--apply`의 기본 동작·필수 인수는 「스크립트 레퍼런스」가 유일한 출처다.
+
+## 0. 기존 프로필을 먼저 확인한다
+
+무엇을 하러 왔든 먼저 `python scripts/manage_profiles.py --list`를 실행한다.
+종료 코드가 0이 아니면 오류로 알리고, 그 갈래를 진행하지 않는다. 성공한 출력이
+`Paseo 에이전트 프로필 0건`일 때만 **"설정된 에이전트 프로필 없음"으로 판정한다.**
+없음으로 판정한 뒤에는 오류 문구를 그대로 보이지 말고 프로필이 아직 없다고 알린 뒤
+갈래별로 이어간다.
+
+| 의도 | 기존 프로필 | 다음 동작 |
+| --- | --- | --- |
+| 추가 | 있음 | **"새 에이전트만 추가할까요, 아예 새로 구성할까요?"를 묻는다.** 추가면 1절 뒤 2절의 id 충돌 처리만, 새로 구성이면 1절 뒤 4절의 전체 교체 게이트를 탄다. |
+| 추가 | 없음 | 프로필이 없다고 알리고 1절로 간다. |
+| 변경 | 있음 | 목록을 보여주고 **어떤 프로필을 변경할지 묻는다.** 3절로 간다. |
+| 변경 | 없음 | 프로필이 없다고 알리고 1절로 간다. 변경할 대상이 없다는 것을 먼저 말한다. |
+| 조회 | 무관 | 출력을 그대로 보여주고 끝낸다. |
+| 삭제 | 있음 | 목록을 보여주고 대상을 고르게 한 뒤 4절로 간다. |
+| 삭제 | 없음 | 지울 것이 없다고 알리고 끝낸다. |
+
+`--list`는 여러 프로필을 나란히 놓고 **고를 때** 쓰고(변경·삭제 대상 선택), `--list --detail`은
+한 건씩 **확인할 때** 쓴다(변경 전 현재 값, 사라질 목록 확인). 목록 서식은 스크립트가
+소유하므로 출력을 그대로 보여 주고 요약해 다시 쓰지 않는다.
+
+## 1. 프로필 설계
+
+### 1-1. 활성 provider 확인이 맨 앞이다
+
+모델 후보는 정적 목록이 아니라 **등록할 때마다의 실조회 결과**로 정한다.
+
+[`references/presets.md`](references/presets.md)의 「해석 절차」를 **이 시점에 읽고 그대로
+따른다.** 5단계이며 요지는 이렇다.
+
+1. **1단계 — 활성 provider 조회.** MCP `list_providers`로 활성 provider를 얻는다.
+   **활성이 하나도 없으면 프리셋을 제안하지 말고 안내하고 중단한다.** 안내 문구는
+   `references/presets.md`의 「조회 장애 처리」에 있다.
+2. **2단계 — provider별 모델·thinking·mode 조회.** MCP `list_models`로 모델 ID와 모델별
+   `thinkingOptions`를 얻는다. 표시명이 아니라 ID다. **모델이 0개로 온 provider는 후보에서
+   뺀다. 활성 provider가 있어도 쓸 수 있는 모델이 하나도 없으면 프리셋을 제안하지 말고
+   안내하고 중단한다** — 모델을 연결한 뒤 다시 요청하라는 취지다.
+3. **3단계 — 유효한 기본 후보.** 조회로 얻은 모델만 후보로 남긴다. 판정 규칙은
+   `references/presets.md`에 있다.
+4. **4단계 — 역할별 thinking 등급 해석.** 역할에 맞는 thinking 등급을 그 모델의 실제
+   `thinkingOptions` 값으로 옮긴다. 등급표는 `references/presets.md`의 「역할별 thinking
+   등급」에 있다.
+5. **5단계 — 실제 값 제시.** 프리셋에 채워 표로 제시한다.
+
+**여기는 codex 단독 환경을 전제한다.** 조회 결과가 비거나 실패했을 때 갈아탈 다른 provider가
+없으므로, 대체 provider를 찾아 진행하지 말고 무엇이 없는지 알리고 멈춘다.
+
+**조회 실패는 "없음"·"0개"와 다르다.** 목록에 있는데 `status`가 `available`이 아닌
+것(`error` 등)은 provider가 없는 것이 아니고, `list_models` 실패·타임아웃은 모델이 0개인
+것이 아니다. 무엇을 조회하려다 어떻게 실패했는지 사용자에게 알리고, 값을 추측해 채우지
+않는다. 그 provider로 프로필을 만들어야 하면 `model`은 필수라 조회로 고를 수 없으니
+사용자에게 물어 확정하고, 조회로 확인되지 않은 선택 키는 1-4 「조회에 없는 선택 키는
+생략한다」를 따른다.
+
+MCP를 쓸 수 없으면 `paseo provider ls --json`과
+`paseo provider models <provider> --json`으로 대신하되, mode 전체 목록은 CLI로 얻을 수
+없다는 한계를 사용자에게 알린다. 근거는 [`references/provider-modes.md`](references/provider-modes.md)에
+있다. 쉘에서 `paseo`를 찾지 못하면 shim의 절대 경로를 추측하지 말고, PATH에서 CLI를 쓸 수
+있게 만든 뒤 다시 실행한다.
+
+### 1-2. 프리셋을 먼저 제안한다
+
+`references/presets.md`의 「세트」와 「역할 정의」에 있는 연구 역할 8개(문헌 탐색 / 논문 정독 /
+데이터 정리 / 계산·모델링 / 시각화 / 실험 계획 / 독립 검토 / 팀장)를 표로 제시하고 **세 갈래 중
+무엇을 할지 묻는다.** 표의 `color`도 그 승인에 포함된다. 에이전트가 표와 다른 색을 넣지 않는다.
+
+| 사용자의 선택 | 다음 동작 |
+| --- | --- |
+| **저가형 (기본 제안)** | [`assets/research-presets-lite.json`](assets/research-presets-lite.json)을 아래 「적용 전 조회 대조」에 통과시킨 뒤 2절로 간다. |
+| 고가형 | [`assets/research-presets-pro.json`](assets/research-presets-pro.json)으로 같은 절차를 밟는다. |
+| 처음부터 설계 | 1-3 이하의 질문 루프를 탄다. |
+
+**기본 제안은 저가형이다.** 고가형은 선택지로만 보여 주고, 두 세트가 어디서 갈리는지를 한 줄로
+알린다 — 실험 계획과 독립 검토에 최상위 모델을 쓰는지가 차이다.
+
+표를 보여 주기 직전에 스킬 디렉터리에서 아래를 실행하고, stdout을 표와 같은 화면에 **그대로**
+붙인다. ANSI를 떼거나 이름·hex만 다시 쓰지 않는다. 표의 `color` 칸에는 키 이름을 유지한다.
+
+```powershell
+python scripts/show_profile_colors.py
+```
+
+#### 적용 전 조회 대조
+
+두 JSON의 `model`과 `thinkingOptionId`는 **한 시점에 정해 박아 둔 값이다.** 그 환경에 없는
+모델이라도 프로필 등록은 그대로 성공하고, 그 프로필로 워커를 띄울 때 비로소 기동이 실패한다.
+등록 결과만 봐서는 드러나지 않으므로 **`--apply` 전에** 아래를 끝낸다.
+
+1. `list_models`로 codex의 실제 모델 목록과 모델별 `thinkingOptions`를 조회한다. 1-1에서 이미
+   받았으면 그 결과를 쓰고 다시 조회하지 않는다.
+2. JSON의 각 `model`이 그 목록에 있는지 대조한다. `thinkingOptionId`도 **그 모델의**
+   `thinkingOptions`에 있는지 같이 본다 — 지원하는 등급은 모델마다 다르다.
+3. 없는 것만 **같은 등급의 조회된 모델**로 치환한다. 등급 판정은 `references/presets.md`의
+   「3단계 — 유효한 기본 후보」를 따른다. 목록에 있는 값은 손대지 않는다.
+4. **치환한 것을 사용자에게 알린다.** 역할마다 무엇을 무엇으로 바꿨고 왜 바꿨는지 적는다.
+   조용히 바꾸면 사용자가 승인한 세트와 다른 것이 등록된다.
+5. 같은 등급의 대체 후보도 없으면 **그 역할은 등록하지 않고 사용자 판단을 받는다.** 남은
+   역할만 등록할지 다른 모델을 지정할지 묻고, 임의로 아무 모델이나 채우지 않는다.
+
+`thinkingOptionId`를 낮추는 것은 이 절차의 권한이 아니다. 어느 후보도 그 등급을 지원하지
+않으면 `references/presets.md`의 「역할별 thinking 등급」대로 낮춘 값과 근거를 제시해 승인받는다.
+
+#### 세트를 바꿀 때
+
+두 JSON은 `id` 여덟 개가 같다. 그래서 한 세트를 등록한 뒤 다른 세트를 그냥 적용하면 스크립트가
+`CONFLICT`로 막는다(2절 「id가 겹칠 때」). **`--update`를 붙이면 그 여덟 개가 제자리에서 교체되고
+배열은 8건 그대로다** — 프로필이 16건으로 불어나지 않는다. 저가형 ↔ 고가형 전환이 명령 하나인
+이유가 이것이다. 바꾸기 전에 어느 세트에서 어느 세트로 가는지 확인받는다. `$modes`는 2절에서
+만든 경로다.
+
+```powershell
+python scripts/manage_profiles.py assets/research-presets-pro.json --update --modes-file $modes
+```
+
+### 1-3. 처음부터 만들 때의 질문 루프
+
+사용자가 프리셋을 거절했거나 프로필 하나만 추가할 때 쓴다. **한 번에 하나씩 묻는다.**
+
+1. **어떤 작업을 맡기고 싶은가?** (예: 논문 정독) — 이 답이 `name`·`id`·`notes`·`icon`의 근거다.
+2. **어떤 모델로?** — 1-1에서 얻은 **활성 provider의 모델만** 선택지로 낸다. 등급 라벨을
+   함께 보여 주면 고르기 쉽다. 조회가 실패해 목록이 없으면 1-1의 조회 실패 분기를 탄다.
+3. **생각 능력은?** — **그 모델의 `thinkingOptions`에 실제로 있는 값만** 낸다. 빈 배열이면
+   **이 질문을 건너뛰고 `thinkingOptionId` 필드를 넣지 않는다.**
+
+세 답이 모이면 **표시 색(`color`)을 묻는다.** 1-2와 같은
+`python scripts/show_profile_colors.py` stdout을 선택지로 보여 준 뒤, 아래 11개 값 중
+무엇을 쓸지 고르게 한다. 이름만 나열하지 않는다. 에이전트가 고르지 않는다. 답이 오면 아래
+「프로필 확인」 양식으로 완성 프로필을 보여주고 승인받는다. 승인되면 **기록하지 말고 모아 두고**, "더
+추가할까요?"를 물어 루프하거나 2절로 넘어간다.
+
+질문 루프의 첫 질문을 보여주기 직전에 [references/FORM.md](references/FORM.md)의 「질문」 절만 범위 읽기하여 양식을 채운다.
+
+- 진행 표시(`2/3`)는 작업·모델·생각 능력 구간에 붙인다. 표시 색은 그 뒤에 따로 묻는다.
+- 선택지는 조회 결과에서 온 것만 넣는다. 예시의 모델 ID를 그대로 옮겨 쓰지 않는다.
+
+### 1-4. 필드별 책임
+
+질문은 작업·모델·생각 능력과, 프로필을 새로 만들 때 묻는 `color`다. **필드마다 아래 책임을
+지킨다.**
+
+| 필드 | 책임 | 어떻게 정하나 |
+| --- | --- | --- |
+| `id` | 자동 파생 (충돌 시 확인) | 1턴 답을 kebab-case 영문으로. 프리셋을 쓰면 프리셋 id. 기존 id와 겹치면 2절의 충돌 처리로 간다. |
+| `name` | 자동 파생 | 1턴 답을 그대로 표시명으로 쓴다. |
+| `provider` | 자동 파생 | 2턴에서 고른 모델이 속한 provider. 따로 묻지 않는다 — 모델을 고르면 정해진다. |
+| `model` | **묻는다 (2턴)** | 활성 provider의 `list_models` 결과만 선택지로 낸다. 조회가 실패해 고를 수 없으면 추측하지 말고 사용자에게 물어 확정한다. |
+| `modeId` | **제안 후 명시 확인** | 대개 권한 등급이라(전용 어댑터 없는 provider는 예외) 조용히 정하면 사용자가 모르는 사이에 쓰기·실행 권한이 붙는다. 아래 규칙을 따른다. |
+| `thinkingOptionId` | **묻는다 (3턴)** | 그 모델의 `thinkingOptions`에 있는 값만. **빈 배열이면 필드를 넣지 않는다.** |
+| `notes` | 자동 생성 후 확인 | 라우팅의 유일한 근거라 초안을 만들어 「프로필 확인」에서 반드시 승인받는다. 1-5 참조. |
+| `icon` | 자동 파생 | Paseo 프로필 편집기가 제공하는 키 중 역할에 가까운 것. 프리셋 세트의 icon에 묶지 않는다. 표시 전용이라 라우팅에 영향이 없다. 「프로필 확인」에서 바꿀 수 있다. |
+| `color` | **묻는다 (생성 시)** | 프로필을 새로 만들 때 아래 11개 값 중 무엇을 쓸지 사용자에게 묻는다. 선택지는 `scripts/show_profile_colors.py` stdout이다. 에이전트가 고르지 않는다. 표시 전용이라 라우팅에 영향이 없다. |
+| `featureValues` | 기본값 — 넣지 않는다 | 전부 `false`가 기본이다. 사용자가 `fast_mode` 같은 토글을 명시 요청할 때만 `inspect_provider`로 그 모델에 있는 기능인지 확인하고 넣는다. |
+
+**조회에 없는 선택 키는 생략한다.** MCP(`inspect_provider`·`list_providers`·`list_models`)나
+CLI 조회로 확인되지 않은 `modeId`·`thinkingOptionId`·`featureValues`는 프로필 JSON에서 키
+자체를 생략한다. 빈 문자열·null·`"default"` 어느 것도 남기지 않는다.
+
+필수 필드는 `id`, `name`, `provider` 셋이다. 스키마는 알 수 없는 키도 통과시키지만, 오타나
+system prompt를 넣는 근거로 쓰지 않는다. 스크립트가 알 수 없는 키를 경고한다.
+
+**`id`와 `name`의 팀장 표시 규칙.** 팀장은 `list_profiles`의 `id`와 `name`만 보고 자기
+자리를 찾는다. 그래서 팀장으로 추천하는 프로필은 `id`에 `team-lead` 접두를, `name`에
+`팀장`을 반드시 넣는다(여럿이면 `team-lead-<구분>` / `팀장 · <구분>`). 워커 프로필의 `id`와
+`name`에는 그 표시를 넣지 않는다. 근거는 `references/presets.md`의 「팀장 표시 규칙」이다.
+
+**`modeId`를 정하는 법.** 값을 직접 고르게 하지 말고 **권한 등급 세 개 중 하나**로 정한 뒤
+provider별 값으로 옮긴다. 등급 → `modeId` 매핑과 근거는 `references/presets.md`의
+「권한 등급 → `modeId`」와 `references/provider-modes.md`에 있다. 역할에서 등급이
+자명하면(독립 검토는 읽기·확인, 데이터 정리는 파일 작성) 제안값으로 두되,
+**「프로필 확인」에서 그 등급이 무엇을 허용하는지 평문으로 보여 승인받는다.** 표에 없는 provider는
+`inspect_provider`의 `modes[].id`를 받아 제약이 큰 쪽부터 세 등급에 대응시킨다. `modes[].id`가
+아예 빈 배열이면(전용 어댑터 없이 CLI에만 붙는 provider) 세 등급으로 나눌 수 없고 조회에
+확인할 값이 없다 — `modeId` 키 자체를 생략한다. `defaultMode`나 `"default"`를 넣지 않는다.
+판별 기준과 처리는 `references/provider-modes.md`의 「전용 어댑터 없이 CLI에만 붙는
+provider」에 있다.
+
+**명령 전권은 한 번 더 확인한다.** claude `bypassPermissions`와 codex `full-access`는 승인
+프롬프트 없이 명령 실행과 네트워크 접근을 허용한다. 이 등급은 명령 실행 자체가 목적인
+프로필에만 붙이고, **등록 전에 따로 알리고 확인받는다.** 확인이 없으면 읽기·확인 등급으로
+낮춰 등록하고 명령마다 승인 프롬프트가 뜬다는 점을 알린다.
+
+claude `plan`은 코드 수정과 도구 실행을 막아 **문서 산출까지 막는다.** 파일을 만들어야 하는
+프로필에는 쓰지 않는다.
+
+`icon`은 이모지가 아니라 Paseo 프로필 편집기가 제공하는 키다. 유효 키는
+[`scripts/manage_profiles.py`](scripts/manage_profiles.py)의 `ICON_REGISTRY`로
+확인한다. 프리셋 세트가 쓰는 키에 묶지 않는다. 레지스트리에 없는 값은 런타임에서 조용히
+기본 아이콘이 되므로 스크립트가 적용 전에 오류로 막는다.
+
+`color`는 프로필을 새로 만들 때 사용자에게 묻는다. 선택지는 `none`, `violet`, `sky`, `emerald`,
+`orange`, `pink`, `indigo`, `teal`, `red`, `amber`, `blue`다. **hex를 여기에 옮겨 적거나
+추측하지 말고** [`scripts/show_profile_colors.py`](scripts/show_profile_colors.py) stdout을
+그대로 보여 준다. 목록에 없는 값은 조용히 `none`이 되므로 `manage_profiles.py`가 오류로
+막는다.
+
+### 1-5. `notes` 쓰는 법
+
+`notes`의 UI 라벨은 "When to use"(한국어 UI에서는 "사용 시점")다. 팀장이 프로필을 고를 때만
+쓰이고 **워커 에이전트에는 전달되지 않는다.** 프로필 스키마에는 의도적으로 system prompt가
+없다.
+
+따라서 `notes`에 "~하지 말 것", "~에게 넘길 것" 같은 워커 행동 규칙을 쓰지 않는다. 그런
+문구는 아무 동작도 강제하지 못한다. 실제 워커 제약은 팀장이 `create_agent`에 주는
+`initialPrompt`, 저장소의 `CLAUDE.md`/`AGENTS.md`, 데몬 전역의 `daemon.appendSystemPrompt`
+중 하나에 둔다.
+
+이 골격을 쓴다.
+
+```text
+<무엇에 쓰는지> — <구체 항목 서너 개>. <인접 프로필과 갈리는 경계 한 구절>.
+```
+
+예: `논문 원문을 정독해 근거를 꺼내는 작업에 사용 — 실험 조건 추출, 표·그림 수치 정리,
+가정 확인, 한계 기술. 어떤 논문을 찾을지는 문헌 탐색.`
+
+프로필을 새로 만들거나 고칠 때는 **인접 프로필의 `notes`를 함께 놓고 경계가 겹치는지
+확인한다.** 스크립트는 160자를 넘으면 경고한다. 짧은 두 문장은 허용하되 미니 사양으로 키우지
+않는다는 기준이며, 기준의 출처는 `references/presets.md`의 「`notes` 길이」다.
+
+### 1-6. 완성 프로필 확인
+
+프로필 하나가 완성될 때마다 기록 전에 보여주고 승인받는다. **자동으로 정한 필드까지 전부
+보여준다.**
+
+완성 프로필을 보여주기 직전에 [references/FORM.md](references/FORM.md)의 「프로필 확인」 절만 범위 읽기하여 양식을 채운다.
+
+- **권한 등급은 반드시 평문으로 무엇을 허용하는지 함께 쓴다.** 원시 값은 괄호에 보조로 둔다.
+  `modeId`를 생략한 경우에는 괄호는 쓰지 않는다. `modes[].id`가 빈 배열로 확인됐으면
+  `해당 없음 (조회된 mode가 없음)`을, 조회가 실패해 확인하지 못했으면
+  `생략 (조회에서 확인되지 않음)`을 적는다. 기능이 없다고 단정하지 않는다.
+- `notes`는 줄이 길면 접지 말고 전부 보인다. 글자 수를 붙여 160자 한도를 눈으로 확인시킨다.
+- `thinkingOptionId`를 넣지 않은 경우 「생각 능력」 줄에, `thinkingOptions`가 빈 배열로
+  확인됐으면 `해당 없음 (이 모델은 옵션이 없음)`을, 조회가 실패해 확인하지 못했으면
+  `생략 (조회에서 확인되지 않음)`을 적는다. 조회 실패를 옵션 없음으로 쓰지 않는다.
+
+## 2. 등록
+
+### `--modes-file`은 apply의 전제다
+
+**`--apply`는 `--modes-file` 없이 차단된다**(`MODES_FILE_REQUIRED`). 프로필 추가, `--update`,
+`--replace-all` 세 경로가 전부 그렇다. dry-run에도 같이 붙여 apply와 같은 조건으로 미리
+검증한다.
+
+내용은 **1-1에서 이미 조회한 mode 목록을 옮긴 것이다. 조회를 다시 하지 않는다.**
+
+1. 1-1의 `list_providers` 결과에 provider별 mode 목록이 있으면 그것을 쓴다. 없으면 provider마다
+   MCP `inspect_provider`로 `modes[].id`와 기본 mode를 받는다.
+2. provider 하나당 `modeIds`(중복 없는 문자열 배열)와 `defaultMode`(그 배열 안의 값 하나)를
+   채운다. `modes[].id`가 빈 배열이면 `modeIds`를 `[defaultMode]` 하나로 채운다. 스키마와
+   예시는 「스크립트 레퍼런스」의 `--modes-file` 항목에 있다.
+3. **쓰기 가능한 임시 디렉터리**에 저장한다. 스킬 폴더에는 쓰지 않는다. 경로는 셸이 주는
+   임시 디렉터리 변수로 만들고 절대 경로를 적어 두지 않는다.
+
+```powershell
+# POSIX 셸이면 modes="${TMPDIR:-/tmp}/paseo-modes.json"
+$modes = Join-Path $env:TEMP 'paseo-modes.json'
+```
+
+아래 예시의 `$modes`가 이 경로다. **`--delete`, `--list`, `--rollback`에는 붙이지 않는다.**
+
+### 기록은 마지막에 한 번만 한다
+
+완성된 프로필을 그때그때 기록하지 않는다. 전부 모아 한 번에 기록한다.
+
+질문 루프를 모두 마친 뒤 배열 하나를 만들어 dry-run이 오류 없이 끝나는 것을 확인하고
+`--apply`를 붙인다. 인수·차단 조건은 「스크립트 레퍼런스」를 따른다.
+
+`--apply`를 실행하기 전에 **「데몬을 리로드할까요?」를 묻는다.** Yes면 `--apply`(쓰기 + reload).
+No면 `--apply --no-reload`(config.json에는 쓰되 daemon reload는 건너뛴다). No인 경우 daemon은
+옛 값을 들고 있고, 스크립트가 `RELOAD_SKIPPED` 경고를 JSON `warnings`와 stderr 요약으로 낸다. 그 뜻을 사용자에게 알린다.
+
+```powershell
+python scripts/manage_profiles.py profiles.json --modes-file $modes
+python scripts/manage_profiles.py profiles.json --modes-file $modes --apply
+python scripts/manage_profiles.py profiles.json --modes-file $modes --apply --no-reload
+```
+
+### id가 겹칠 때
+
+`--update` 없이 기존 id와 겹치면 스크립트가 오류로 막는다. 임의로 `--update`를 붙이지 말고
+**사용자에게 묻는다** — 기존 프로필을 새 내용으로 교체할지, 다른 id로 추가할지. 교체를
+고르면 3-2의 `--update` 명령으로, 다른 id를 고르면 id를 바꿔 다시 dry-run한다.
+
+### 등록 뒤 확인
+
+`--apply`가 끝나면 `scripts/check_registration.py`로 기록된 값을 데이터 수준에서 확인한다.
+`--list --detail`과 데몬 목록을 눈으로 대조하지 마라 — 그 사람용 출력은 `featureValues`를 생략한다.
+
+디스크는 `python scripts/manage_profiles.py --list --json`으로 받는다. 데몬은
+`--apply` 직후 MCP `list_profiles`를 **다시** 호출한다. 0절 스냅샷은 방금 등록한 값을
+담고 있지 않아 재사용할 수 없다.
+
+```bash
+python scripts/manage_profiles.py --list --json > disk.json
+# daemon.json 은 --apply 직후 MCP list_profiles 결과를 저장한 파일이다.
+python scripts/check_registration.py --disk disk.json --daemon daemon.json
+```
+
+종료 코드 0은 전부 일치, 1은 불일치(필드 차이·disk-only·daemon-only), 2는 입력·실행 오류다.
+2를 일치로 치지 마라. 사람 출력은 `[PASS|FAIL] id`와 불일치 필드다. `--json`이면 `{"axis":"registration","results":[...],"summary":{"passed","failed","total"}}`.
+
+프로필에 실제 작업을 시켜 품질을 보지 않는다. 그다음 5절로 간다.
+
+## 3. 변경
+
+### 3-1. 변경 대상이 목록에 있는지 먼저 대조한다
+
+사용자가 지목한 대상이 **0절 `--list` 출력에 실제로 있는지 확인한 뒤에만 다음으로 간다.**
+
+지목 방식은 두 가지이고 **양쪽 모두 목록과 대조한다.**
+
+- **번호로 지목**(`3번`, `세 번째`) — `--list` 출력의 행 번호로만 읽는다. 목록 건수를 벗어난
+  번호는 대상이 없는 것이다.
+- **id로 지목**(`paper-reading`) — `--list` 출력의 `id`와 글자 그대로 대조한다. 사용자가
+  표시명이나 한국어 이름(`논문 정독`)으로 말했으면 그것이 가리키는 `id` 하나로 좁혀지는지
+  확인한다. 부분만 맞거나 여러 건에 걸리면 확정하지 않는다.
+
+정확히 한 건으로 좁혀지지 않으면(없는 번호, 없는 id, 오타, 후보 여럿) **진행하지 말고 목록을
+다시 보여주며 다시 입력받는다.** 가까워 보이는 이름을 임의로 골라 대신하지 않는다. 스크립트
+오류가 뜨는 것을 기다리지 말고 그 앞에서 다시 묻는다.
+
+### 3-2. 값을 바꿔 교체한다
+
+3-1에서 확정한 프로필의 현재 값을 `--list --detail`로 보여주고, 어떤 필드를 어떻게 바꿀지
+묻는다. 모델을 바꾸면 `thinkingOptionId`를 **반드시 다시 확인한다** — 유효 값은 모델 단위로
+다르고, 이전 모델의 값을 그대로 옮기면 오류로 막힌다. provider가 바뀌면 `modeId`도 다시
+정한다. 두 provider에서 이름이 같은 mode라도 의미가 다르다.
+
+바꾼 프로필 하나를 통째로 만들어 `--update`로 교체한다. `$modes`는 2절에서 만든 경로다.
+dry-run 뒤 `--apply`와 인수는 「스크립트 레퍼런스」를 따른다.
+
+```powershell
+python scripts/manage_profiles.py profile.json --update --modes-file $modes
+python scripts/manage_profiles.py profile.json --update --modes-file $modes --apply
+```
+
+## 4. 삭제와 전체 교체
+
+명령 형태와 `--modes-file` 규칙은 「스크립트 레퍼런스」를 따른다. `$modes`는 2절에서 만든
+경로다.
+
+```powershell
+python scripts/manage_profiles.py --delete literature-search data-prep
+python scripts/manage_profiles.py profiles.json --replace-all --modes-file $modes
+```
+
+dry-run 결과와 직전에 확인한 기존 프로필 목록을 기준으로 승인 화면을 만든다.
+`changes.remove`는 값이 그대로 유지되지 않은 원본 항목 목록이며, 그 길이를 실제 삭제 건수로 쓰지 않는다.
+기존 건수보다 `changes.finalArrayLength`가 작으면 「삭제 확인」, 그렇지 않으면 「값 변경 확인」 양식을 선택한다.
+승인 화면을 보여주기 직전에 [references/FORM.md](references/FORM.md)의 선택한 절만 범위 읽기하여 채운다.
+대상 건수를 먼저 쓰고 대상마다 한 줄씩 표시하며, 남는 건수는 `changes.finalArrayLength`로 표시한다.
+「값 변경 확인」은 명시적 적용 승인을 받고, 「삭제 확인」은 백업 복원이 필요함을 알린 뒤 "삭제"라는 답을 받는다.
+필요한 절을 읽지 못하면 승인 화면 제시와 적용을 중단하고, 읽기 실패를 알린다.
+선택한 양식의 승인 조건을 충족한 뒤에만 `--apply`를 실행한다.
+
+## 5. 이 스킬의 범위는 기록 확인까지다
+
+데이터 수준 확인이 끝나면 이 스킬의 일은 끝난 것이다. 무엇을 등록·변경·삭제했고 기록 확인이
+어떻게 나왔는지 알리고 마친다.
+
+**프로필이 목적(`notes`의 용도)대로 잘 동작하는지 실제 작업을 시켜 품질로 판정하는 일은 이
+스킬의 범위 밖이다.** 기록이 맞다는 것은 값이 의도대로 들어갔다는 뜻이지, 그 값으로 뜬
+에이전트가 그 일을 잘한다는 뜻이 아니다. 둘은 다른 판정이므로 기록 확인 결과를 동작 품질의
+근거로 제시하지 않는다. 사용자가 동작 품질까지 보고 싶어 하면 이 스킬이 대신 판정하지 말고,
+별도 작업이라는 것과 무엇을 더 해야 하는지를 알린다.
+
+## 스크립트 레퍼런스
+
+프로필 한 개 JSON 객체 또는 여러 프로필 JSON 배열을 파일 인수로 주거나 표준입력으로
+전달한다.
+
+| 인수 | 하는 일 |
+| --- | --- |
+| `INPUT` | 프로필 JSON 파일 경로. 생략하면 stdin을 읽는다. |
+| `--apply` | 검증된 변경을 실제로 반영한다. 없으면 완전한 dry-run이다. 프로필 추가·`--update`·`--replace-all`에서는 `--modes-file`이 함께 있어야 한다. |
+| `--no-reload` | `--apply`와 함께만 쓴다. config.json에는 쓰되 `paseo daemon reload`를 건너뛴다. 단독 사용은 `ARGUMENT` 오류. `--rollback --apply`에도 같다. 이 조합은 daemon `logPath`를 요구하지 않는다. |
+| `--update` | 같은 id의 기존 프로필 정확히 하나를 교체한다. |
+| `--replace-all` | INPUT 배열로 `agentProfiles` 전체를 교체한다. |
+| `--delete ID [ID ...]` | 여러 id를 한 번에 제거한다. INPUT과 함께 쓸 수 없다. |
+| `--list` | 현재 프로필을 사람이 읽는 압축형으로 출력한다. |
+| `--detail` | `--list` 출력을 상세형으로 바꾼다. `--json`에는 영향이 없다. |
+| `--json` | `--list` 결과를 JSON으로 출력한다. |
+| `--modes-file PATH` | 권위 있는 provider별 mode 목록을 주어 mode 검증을 실제 검증으로 바꾼다. 프로필 추가·`--update`·`--replace-all`에만 쓸 수 있고, 그 세 경로의 `--apply`에는 필수다. |
+| `--config PATH` | 대상 `config.json` 경로 override. |
+| `--rollback BACKUP` | 지정한 백업 JSON을 복원한다. `--apply`가 없으면 dry-run이다. |
+
+성공은 기록된 배열이 계획과 일치하고 배열 밖 값이 보존된 것이다. `--apply`만 쓰면 여기에
+`paseo daemon reload` 종료 코드 0이 더해진다. 성공 문구(`Configuration reloaded.`)는 보조
+확인이다. `--apply --no-reload`면 reload를 시도하지 않고 `RELOAD_SKIPPED` 경고가 JSON
+`warnings`와 stderr 요약으로 난다. 기록 뒤 이 판정에 어긋나면 스크립트가 backup을 복원하고,
+reload를 건너뛰지 않은 경우에만 다시 reload한다. 복원과 재reload까지 실패하면 `ROLLBACK`이다.
+
+데몬 로그는 진단 전용이다. 적용 성공·실패의 근거로 쓰지 않는다. 값이 의도대로 기록됐는지는
+`scripts/check_registration.py`가 `--list --json` 출력과 `--apply` 직후 MCP `list_profiles`를
+대조한다. `--disk`와 `--daemon`은 파일 경로 또는 `-`(stdin)이다. 데몬이 현재 어떤 프로필
+배열을 들고 있는지 묻는 CLI 명령은 없다.
+
+`--rollback`은 이름 규칙과 위치로 대상을 거른다.
+`<config 파일명>.profile-setup.<apply|rollback>.<시각>.<uuid>.bak` 형태가 아니거나 대상 설정과
+다른 디렉터리에 있으면 파싱에 성공해도 막는다. 사용자가 직접 만든 `config.json.bak`이나 다른
+Paseo 설치의 설정은 이 명령으로 복원할 수 없다.
+
+`--modes-file`은 MCP `list_providers`/`inspect_provider`로 받은 mode 목록을 넘길 때 쓴다.
+만드는 절차와 저장 위치는 2절에 있다.
+
+```json
+{"providers": {"<provider-id>": {"modeIds": ["<mode-id>"], "defaultMode": "<mode-id>"}}}
+```
+
+`defaultMode`는 필수이며 반드시 그 provider의 `modeIds` 안에 있는 값이어야 한다. 어긋나면
+`MODES_FILE` 오류로 막힌다. provider의 `modes[].id`가 빈 배열이면 `modeIds`를
+`[defaultMode]`로 채워 이 조건을 만족시킨다.
+
+스크립트는 사람이 읽을 요약과 기계가 읽을 JSON을 함께 출력한다. 종료 코드 `0`은 dry-run
+또는 적용이 오류 없이 끝났다는 뜻이다. `errors`는 입력이나 적용을 고쳐야 하는 차단 조건이고,
+`warnings`는 사람이 판단할 조건이다. 적용에 실패하면 결과의 backup 경로와 rollback 결과를
+확인하고, 추측으로 같은 적용을 반복하지 않는다.
+
+**Paseo 데스크톱 앱의 프로필 편집기는 배열 전체를 덮어쓴다.** 스크립트로 적용하는 동안에는
+데스크톱 UI의 프로필 편집기를 열거나 쓰지 않는다. 두 쓰기 경로를 섞어야 하면 먼저 어느 쪽을
+기준으로 할지 사용자에게 확인한다.
+
+`--config`는 임시 사본으로 파일 파이프라인을 시험할 때 쓴다. `paseo daemon reload`는 실제
+데몬의 실제 설정을 다시 읽으므로, 임시 사본 적용은 데몬 반영 확인이 아니다. 실제
+`<paseo home>` 아래의 `config.json`에는 이 스킬을 검증하려고 `--apply`를 실행하지 않는다.
+
+## 참고 문서 — 언제 읽나
+
+| 문서 | 읽는 시점 |
+| --- | --- |
+| [`assets/research-presets-lite.json`](assets/research-presets-lite.json) · [`assets/research-presets-pro.json`](assets/research-presets-pro.json) | 1-2에서 사용자가 저가형·고가형 세트를 고른 뒤 「적용 전 조회 대조」를 거쳐 dry-run·`--apply`의 INPUT으로 줄 때. |
+| [`references/presets.md`](references/presets.md) | 1-1의 provider·모델 해석 절차를 실행할 때, 1-2에서 연구 역할 8개 세트를 제시할 때, 권한 등급·역할별 thinking 등급·`notes` 길이 규칙이 필요할 때. |
+| [`references/provider-modes.md`](references/provider-modes.md) | `modeId`의 유효 값과 provider별 의미 차이를 확인할 때, 모델별 `thinkingOptions`의 생김새와 함정을 볼 때, `featureValues` 키 이름이 헷갈릴 때. |
+| [`references/FORM.md`](references/FORM.md) | 사용자에게 보여줄 화면을 만들기 직전에 해당 절만 범위 읽기로 — 1-3의 「질문」, 1-6의 「프로필 확인」, 4절의 「삭제 확인」·「값 변경 확인」. |
+| [`scripts/manage_profiles.py`](scripts/manage_profiles.py) | 0절의 목록 조회, 2·3·4절의 dry-run과 적용을 실행할 때. `icon` 유효 키(`ICON_REGISTRY`)를 확인할 때. 인수는 「스크립트 레퍼런스」에 있다. |
+| [`scripts/show_profile_colors.py`](scripts/show_profile_colors.py) | 1-2의 프리셋 표를 보여주기 직전, 1-3의 `color` 질문 직전. stdout을 그대로 보여 준다. |
+| [`scripts/check_registration.py`](scripts/check_registration.py) | 2절 「등록 뒤 확인」에서 `--apply` 직후. |
+
+[`references/presets.md`](references/presets.md)와 [`references/provider-modes.md`](references/provider-modes.md)는 **한 시점의 스냅샷이다.** 조회 결과와 다르면 조회 결과를 쓴다.

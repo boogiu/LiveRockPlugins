@@ -1,0 +1,90 @@
+[
+  {
+    "id": "literature-search",
+    "name": "문헌 탐색",
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "modeId": "full-access",
+    "thinkingOptionId": "low",
+    "icon": "search",
+    "color": "sky",
+    "notes": "검색어로 논문 후보를 스크립트로 뽑아 서지정보·초록·출처 링크를 표로 돌려준다. 본문 해석과 변인·수치 추출은 논문 정독으로 보낸다."
+  },
+  {
+    "id": "paper-reading",
+    "name": "논문 정독",
+    "provider": "codex",
+    "model": "gpt-5.6-terra",
+    "modeId": "auto",
+    "thinkingOptionId": "medium",
+    "icon": "book",
+    "color": "indigo",
+    "notes": "논문 하나의 출처·변인·분석 기법·결론을 원문 근거로 정리하고 확인하지 못한 것은 미확인으로 표시한다. 후보 검색은 문헌 탐색으로 보낸다."
+  },
+  {
+    "id": "data-prep",
+    "name": "데이터 정리",
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "modeId": "auto",
+    "thinkingOptionId": "low",
+    "icon": "database",
+    "color": "teal",
+    "notes": "원본 데이터 파일 하나를 읽어 열 이름·단위·결측·이상치를 정리하고 변환 절차를 함께 남긴다. 값의 해석은 계산·모델링, 그림은 시각화로 보낸다."
+  },
+  {
+    "id": "calculation-modeling",
+    "name": "계산·모델링",
+    "provider": "codex",
+    "model": "gpt-5.6-terra",
+    "modeId": "auto",
+    "thinkingOptionId": "high",
+    "icon": "cpu",
+    "color": "blue",
+    "notes": "조건 세트 하나의 물질·에너지 수지와 물성 계산을 단위·유효숫자·출처·조건을 붙여 수행하고 입력과 절차를 재현 가능하게 남긴다. 결과 판정은 독립 검토."
+  },
+  {
+    "id": "visualization",
+    "name": "시각화",
+    "provider": "codex",
+    "model": "gpt-5.6-terra",
+    "modeId": "auto",
+    "thinkingOptionId": "medium",
+    "icon": "palette",
+    "color": "pink",
+    "notes": "정리된 데이터를 축·단위·범례·오차 표시가 갖춰진 그림으로 만들고 쓴 원본과 처리 절차를 적는다. 데이터 정리는 데이터 정리, 값 해석은 계산·모델링."
+  },
+  {
+    "id": "experiment-plan",
+    "name": "실험 계획",
+    "provider": "codex",
+    "model": "gpt-5.6-sol",
+    "modeId": "auto",
+    "thinkingOptionId": "high",
+    "icon": "flask",
+    "color": "amber",
+    "notes": "연구 질문을 마일스톤으로 나눠 변인·측정 항목·판정 기준·선행 조건을 정하고 확정·제안·미확인을 구분한다. 문헌 확인과 계산 근거는 담당 역할로 보낸다."
+  },
+  {
+    "id": "independent-check",
+    "name": "독립 검토",
+    "provider": "codex",
+    "model": "gpt-5.6-sol",
+    "modeId": "auto",
+    "thinkingOptionId": "high",
+    "icon": "eye",
+    "color": "emerald",
+    "notes": "결과 파일을 원본 합격 기준과 대조해 단위·수지·출처·결론 근거를 판정하고 지적만 돌려준다. 대상을 고치지 않는다. 수정은 그것을 만든 역할이 맡는다."
+  },
+  {
+    "id": "team-lead",
+    "name": "팀장",
+    "provider": "codex",
+    "model": "gpt-5.6-sol",
+    "modeId": "auto",
+    "thinkingOptionId": "medium",
+    "icon": "compass",
+    "color": "violet",
+    "notes": "요청의 단계·담당 역할·실행 순서를 정하고 결과를 취합한다. 작업 자체는 담당 워커에게 맡기고 직접 착수하지 않는다."
+  }
+]
