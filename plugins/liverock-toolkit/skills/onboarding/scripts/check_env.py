@@ -4,6 +4,10 @@
 점검 대상은 네 가지다 — 플러그인 설치·활성(1), Python 3(2), 네트워크(3),
 실행 기록 디렉터리(8). Paseo MCP 도구가 있어야 하는 항목(4~7)은 여기서 다루지 않는다.
 
+표 아래에 provider CLI(codex·claude)의 **실제 실행 경로**를 함께 낸다. 9번(provider 실행
+경로) 판정 자체는 `list_providers`로 하지만, 실패했을 때 사용자가 Paseo 설정에 넣을 값이
+이 경로다. 못 찾았으면 어디를 찾아봤는지를 남겨 다음에 볼 자리를 알려 준다.
+
 확인에 실패한 항목은 예외로 세션을 끊지 않고 unknown(확인 불가)으로 남긴다.
 pass와 unknown은 다른 상태다 — 확인하지 못한 것을 통과로 적으면 나중에 원인을
 찾을 자리가 사라진다.
@@ -23,6 +27,7 @@ import urllib.request
 PLUGIN_ID = "liverock-toolkit@liverock"
 ORCH_PARTS = (".agents", "orchestration")
 OPENALEX_PROBE = "https://api.openalex.org/works?per-page=1"
+PROVIDER_CLIS = ("codex", "claude")
 
 PASS = "pass"
 FAIL = "fail"
@@ -70,6 +75,112 @@ def run(cmd, timeout=20.0):
         warn(" ".join(cmd) + " 실행 실패: " + repr(exc))
         return None
     return proc.returncode, proc.stdout or "", proc.stderr or ""
+
+
+def npm_global_dirs():
+    """npm 전역 설치 디렉터리 후보를 환경에서 구한다. 경로를 하드코딩하지 않는다.
+
+    npm에게 직접 묻는 것이 가장 정확하다. npm이 없거나 대답하지 않으면 사용자
+    홈·APPDATA처럼 환경 변수에서 구한 기준 디렉터리로 관례 위치를 만든다.
+    """
+    dirs = []
+
+    def add(path):
+        if path and os.path.isdir(path) and path not in dirs:
+            dirs.append(path)
+
+    result = run(["npm", "config", "get", "prefix"], timeout=15.0)
+    if result is not None and result[0] == 0:
+        lines = [ln.strip() for ln in result[1].splitlines() if ln.strip()]
+        if lines:
+            prefix = lines[-1]
+            add(prefix)
+            add(os.path.join(prefix, "bin"))
+
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        add(os.path.join(appdata, "npm"))
+
+    home = os.path.expanduser("~")
+    if home and home != "~":
+        add(os.path.join(home, ".npm-global", "bin"))
+        add(os.path.join(home, ".local", "bin"))
+    return dirs
+
+
+def executable_here(directory, name):
+    """디렉터리 안에서 실제로 실행 가능한 파일을 고른다. 없으면 None.
+
+    resolve()와 같은 이유로 Windows에서는 확장자가 있는 것만 고른다 — npm이 함께 까는
+    확장자 없는 셸 스크립트를 잡으면 파일은 있는데 실행이 안 된다.
+    """
+    for candidate in (name + ".cmd", name + ".exe", name + ".bat", name):
+        path = os.path.join(directory, candidate)
+        if not os.path.isfile(path):
+            continue
+        if os.name == "nt":
+            if os.path.splitext(path)[1]:
+                return path
+        elif os.access(path, os.X_OK):
+            return path
+    return None
+
+
+def find_provider_cli(name, extra_dirs):
+    """provider CLI 실행 파일의 실제 경로를 찾는다.
+
+    PATH는 resolve()로 본다 — 확장자 처리가 이미 거기 있다. PATH에 없으면 흔한 설치
+    디렉터리를 직접 뒤진다. 찾으면 경로를, 못 찾으면 찾아본 위치를 돌려준다.
+    """
+    searched = ["PATH"]
+    try:
+        found = resolve(name)
+    except Exception as exc:  # 탐색 실패가 나머지 점검을 막지 않게 한다
+        warn(name + " PATH 탐색 실패: " + repr(exc))
+        found = None
+    if found:
+        return {"name": name, "path": found, "source": "PATH", "searched": searched}
+
+    for directory in extra_dirs:
+        searched.append(directory)
+        try:
+            found = executable_here(directory, name)
+        except Exception as exc:
+            warn(name + " " + directory + " 탐색 실패: " + repr(exc))
+            continue
+        if found:
+            return {
+                "name": name,
+                "path": found,
+                "source": directory,
+                "searched": searched,
+            }
+
+    warn(name + " 실행 파일을 찾지 못했다. 찾아본 곳: " + ", ".join(searched))
+    return {"name": name, "path": None, "source": None, "searched": searched}
+
+
+def find_provider_clis():
+    """9번 실패 시 사용자에게 보여 줄 provider CLI 경로를 모은다."""
+    try:
+        extra_dirs = npm_global_dirs()
+    except Exception as exc:  # 후보 수집이 실패해도 PATH 탐색은 한다
+        warn("npm 전역 디렉터리 수집 실패: " + repr(exc))
+        extra_dirs = []
+    return [find_provider_cli(name, extra_dirs) for name in PROVIDER_CLIS]
+
+
+def render_providers(providers):
+    """표 아래에 붙는 provider CLI 경로 절."""
+    width = max(len(p["name"]) for p in providers)
+    out = ["", "provider CLI 실행 경로"]
+    for p in providers:
+        head = "  " + p["name"].ljust(width) + " : "
+        if p["path"]:
+            out.append(head + p["path"] + "  (" + p["source"] + ")")
+        else:
+            out.append(head + "찾지 못함. 찾아본 곳 — " + ", ".join(p["searched"]))
+    return "\n".join(out)
 
 
 def find_repo_root(start):
@@ -260,7 +371,10 @@ def render_table(rows):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="온보딩 점검 중 MCP가 필요 없는 항목(1·2·3·8)을 확인한다."
+        description=(
+            "온보딩 점검 중 MCP가 필요 없는 항목(1·2·3·8)을 확인하고, "
+            "provider CLI(codex·claude)의 실제 실행 경로를 함께 찾는다."
+        )
     )
     parser.add_argument("--json", action="store_true", help="결과를 JSON으로 출력한다")
     parser.add_argument(
@@ -306,11 +420,23 @@ def main(argv=None):
         row.update(result)
         rows.append(row)
 
+    try:
+        providers = find_provider_clis()
+    except Exception as exc:  # 경로 탐색 실패가 점검 결과를 못 내게 하지 않는다
+        warn("provider CLI 탐색이 예외로 끝났다: " + repr(exc))
+        providers = []
+
     if args.json:
-        payload = {"repo_root": repo_root, "checks": rows}
+        payload = {
+            "repo_root": repo_root,
+            "checks": rows,
+            "provider_clis": providers,
+        }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         print(render_table(rows))
+        if providers:
+            print(render_providers(providers))
 
     # 확인 못 한 것과 실패한 것이 있어도 종료코드로 세션을 끊지 않는다.
     return 0
