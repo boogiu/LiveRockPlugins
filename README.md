@@ -29,7 +29,7 @@ flowchart LR
 
 | 플러그인 | 버전 | 설명 |
 |---|---|---|
-| [`liverock-toolkit`](plugins/liverock-toolkit/.codex-plugin/plugin.json) | 0.2.0 | 화학공학 연구 업무용. 환경 온보딩, 프로필 구성, 워커 오케스트레이션, 문헌 분석, 실험 계획 |
+| [`liverock-toolkit`](plugins/liverock-toolkit/.codex-plugin/plugin.json) | 0.2.1 | 화학공학 연구 업무용. 환경 온보딩, 프로필 구성, 워커 오케스트레이션, 문헌 분석, 실험 계획 |
 
 ## `liverock-toolkit` 스킬
 
