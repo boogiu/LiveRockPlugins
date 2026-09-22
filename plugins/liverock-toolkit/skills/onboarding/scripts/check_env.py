@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """MCP 없이 확인할 수 있는 온보딩 점검 항목을 한 번에 돌린다.
 
-점검 대상은 네 가지다 — 플러그인 설치·활성(1), Python 3(2), 네트워크(3),
-실행 기록 디렉터리(8). Paseo MCP 도구가 있어야 하는 항목(4~7)은 여기서 다루지 않는다.
+점검 대상은 다섯 가지다 — codex 로그인(10), 플러그인 설치·활성(1), Python 3(2),
+네트워크(3), 실행 기록 디렉터리(8). 10번이 맨 앞이다: 로그인이 안 돼 있으면 codex 자체를
+못 쓰고, 1번은 로그인된 상태를 전제한다. Paseo MCP 도구가 있어야 하는 항목(4~7)은 여기서
+다루지 않는다.
 
 표 아래에 provider CLI(codex·claude)의 **실제 실행 경로**를 함께 낸다. 9번(provider 실행
 경로) 판정 자체는 `list_providers`로 하지만, 실패했을 때 사용자가 Paseo 설정에 넣을 값이
@@ -198,6 +200,56 @@ def find_repo_root(start):
         cur = parent
 
 
+def check_login():
+    """10. codex 로그인 — `codex login status`의 출력 문자열로 판정한다.
+
+    **종료코드로 가르지 않는다.** 실측에서 로그인 여부와 무관하게 둘 다 0이었다 —
+    로그인된 상태의 `Logged in using ChatGPT`도 0, 안 된 상태의 `Not logged in`도 0이다.
+    종료코드로 판정하면 로그인이 안 된 환경까지 통과로 나온다.
+
+    `Not logged in`이 `logged in`을 부분 문자열로 품으므로 부정 쪽을 먼저 본다.
+    둘 다 아닌 출력이면 확인 불가다 — 모르는 출력을 통과로 적지 않는다.
+
+    로그인은 자격 증명이고 브라우저 상호작용이 필요하므로 에이전트가 하지 않는다.
+    """
+    result = run(["codex", "login", "status"])
+    if result is None:
+        return {
+            "status": UNKNOWN,
+            "detail": "codex CLI를 실행하지 못했다",
+            "fix": "codex CLI가 설치돼 있고 PATH에 있는지 확인한다",
+        }
+    _code, out, err = result
+    lines = [ln.strip() for ln in out.splitlines() + err.splitlines() if ln.strip()]
+
+    def decisive(needle):
+        """판정을 가른 줄을 그대로 돌려준다. 없으면 None.
+
+        경고 같은 다른 줄이 섞여 나올 수 있으므로 첫 줄을 근거로 쓰지 않는다.
+        사용자가 보는 근거와 판정 근거가 같아야 한다.
+        """
+        for ln in lines:
+            if needle in ln.lower():
+                return ln
+        return None
+
+    hit = decisive("not logged in")
+    if hit is not None:
+        return {
+            "status": FAIL,
+            "detail": hit,
+            "fix": "사용자가 codex login으로 로그인한다. 에이전트는 로그인하지 않는다",
+        }
+    hit = decisive("logged in")
+    if hit is not None:
+        return {"status": PASS, "detail": hit, "fix": ""}
+    return {
+        "status": UNKNOWN,
+        "detail": "codex login status 출력을 해석하지 못했다: " + (lines[0] if lines else "출력 없음"),
+        "fix": "출력을 그대로 사용자에게 전하고 로그인 상태를 직접 확인하게 한다",
+    }
+
+
 def check_plugin():
     """1. 플러그인 설치·활성 — codex plugin list에서 installed, enabled를 본다."""
     result = run(["codex", "plugin", "list"])
@@ -372,7 +424,7 @@ def render_table(rows):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=(
-            "온보딩 점검 중 MCP가 필요 없는 항목(1·2·3·8)을 확인하고, "
+            "온보딩 점검 중 MCP가 필요 없는 항목(10·1·2·3·8)을 확인하고, "
             "provider CLI(codex·claude)의 실제 실행 경로를 함께 찾는다."
         )
     )
@@ -399,6 +451,7 @@ def main(argv=None):
     repo_root = args.repo_root or find_repo_root(os.getcwd())
 
     checks = (
+        (10, "codex 로그인", check_login),
         (1, "플러그인 설치·활성", check_plugin),
         (2, "Python 3", check_python),
         (3, "네트워크", lambda: check_network(args.network_timeout)),

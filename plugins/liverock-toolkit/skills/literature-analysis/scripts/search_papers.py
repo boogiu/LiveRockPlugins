@@ -110,6 +110,15 @@ def main():
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
+    # Windows에서 Python은 stdout에 로캘 인코딩(한국어 환경이면 CP949)을 쓴다. 표 머리글과
+    # --json 결과가 CP949 바이트로 나가면 UTF-8을 기대하는 쪽 — 에이전트 화면, 로그, 다음
+    # 단계의 파싱 — 에서 전부 깨진다. 출력 자체를 UTF-8로 고정한다.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # 구버전 스트림이면 그대로 쓴다
+            pass
+
     trusted_entries = load_trusted_list(args.trusted_file)
 
     try:
