@@ -1,6 +1,6 @@
 {
   "name": "liverock-toolkit",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Chemical engineering research workflows for LiveRock. Skills are authored from the user's own workflow reports; see references/skill-authoring.md for the authoring rules.",
   "author": {
     "name": "Sky"
