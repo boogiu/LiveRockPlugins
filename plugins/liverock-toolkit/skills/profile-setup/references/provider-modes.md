@@ -53,7 +53,7 @@ MCP를 쓸 수 없는 상황이면 CLI가 주는 것은 `defaultMode` 하나뿐�
 | 권한 등급 | codex |
 | --- | --- |
 | 읽기·확인 | `auto` |
-| 파일 작성 | `auto-review` |
+| 파일 작성 | `auto` |
 | 명령 전권 | `full-access` |
 
 - codex `full-access`는 **네트워크 접근과 무제한 실행**을 준다. 외부 호출이 핵심 동작인
