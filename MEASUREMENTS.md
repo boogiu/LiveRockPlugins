@@ -358,3 +358,116 @@ Windows에서 Python은 stdout에 로캘 인코딩을 쓴다. UTF-8을 기대하
 설계 교훈: **측정 대상을 억누르지 않는 안전장치를 골라야 한다.** B는 안전을 위해 넣은
 "파일 읽지 마라 + 말만 하고 끝내라"가 위임 스킬의 발동 자체를 막아 무효가 됐다. D·E는
 금지 대신 **파일이 필요 없는 질문**을 골라 같은 안전을 얻으면서 측정을 살렸다.
+
+## 2026-09-23 — codex 런타임의 도구 표면과 위임 게이트
+
+### 왜 쟀나
+
+연구원이 "오케스트레이션 폴더가 비어 있다"고 보고했다. 워커는 뜨는데 `.agents/orchestration/`
+아래에 `GRAPH.md`가 생기지 않는 상태다.
+
+### 실측 1 — codex 세션에는 Paseo MCP 도구가 없다
+
+Paseo가 띄운 codex 에이전트에 도구 목록을 직접 물었다. 받은 전체 목록:
+
+```text
+functions.exec, functions.wait,
+collaboration.spawn_agent, collaboration.followup_task, collaboration.send_message,
+collaboration.interrupt_agent, collaboration.list_agents, collaboration.wait_agent,
+mcp__cua_repl.js, mcp__cua_repl.js_reset
+```
+
+`create_agent`·`list_workspaces`·`list_agents`·`get_agent_status`·`send_agent_prompt`·
+`cancel_agent`·`list_profiles`·`list_providers` **전부 없음**으로 확인됐다.
+
+`~/.paseo/config.json`의 `daemon.mcp.injectIntoAgents`는 **`true`였다.** 켜져 있는데도
+도구가 없다. 이 설정은 codex 세션에 MCP를 주입하는 경로가 아니다.
+
+**결과**: `agent-orchestration`은 존재하지 않는 도구를 부르라고 지시하고 있었다. 팀장은
+`collaboration.spawn_agent`로 조용히 우회했고, 기록 지시가 기동 호출에 묶여 있어 `GRAPH.md`가
+통째로 빠졌다. 이것이 연구원이 본 증상이다.
+
+`paseo` CLI는 정상 동작한다. 데몬이 `127.0.0.1:6767`에 있고 `run`·`ls`·`inspect`·`send`·
+`stop`·`wait`·`workspace ls`·`provider ls`가 모두 있으며 `--json`이 파싱된다.
+**`paseo profile` 하위 명령은 없다**(`error: unknown command 'profile'` 재현). 프로필 조회는
+CLI로 불가능하다.
+
+### 실측 2 — 설치본은 캐시에서 로드된다 (앞 기록 정정)
+
+2026-09-21 기록의 "소스가 설치본 캐시가 아니라 저장소를 직접 가리킨다"는 `plugin list`의
+`SOURCE` 열을 읽은 것이고, **실제 로드 경로는 캐시다.** 팀장의 활동 기록에 그대로 남았다 —
+`Get-Content -Raw '~/.codex/plugins/cache/liverock/liverock-toolkit/0.2.1/skills/...'`.
+
+저장소만 고친 상태로 돌린 시험 두 건이 이것 때문에 무효가 됐다.
+
+`codex plugin add liverock-toolkit@liverock` 재실행으로 **같은 버전에서도 캐시가 갱신된다**
+(462줄 → 483줄 확인). `--force` 플래그는 없고 필요하지도 않다. 갱신 후 `diff -r` 차이 0건.
+
+### 실측 3 — 직접 처리가 팀장 컨텍스트를 더 먹는다
+
+위임 게이트에 걸려 팀장이 직접 처리한 실행에서, 팀장이 읽은 파일의 실측 크기:
+
+| 파일 | 자 |
+| --- | ---: |
+| `onboarding/SKILL.md` | 21,358 |
+| `experiment-planning/SKILL.md` | 10,240 |
+| `literature-analysis/SKILL.md` | 6,701 |
+| 합계 | 38,299 ≈ **25.5k 토큰** |
+
+위임했다면 팀장 컨텍스트에 들어올 것은 브리핑(템플릿 2,076자 + 작업 내용)과 완료 알림
+요약뿐이다 — 대략 **7k 토큰**. `SKILL.md` 7절이 "결과 파일 본문을 네 컨텍스트로 옮기지
+않는다"고 막아 둔 덕이다.
+
+**팀장 컨텍스트 기준 직접 처리가 3.6배 비싸다.** 다만 총 토큰은 반대다 — 워커마다 고정분
+21k를 새로 무므로 워커 3개면 직접 46.5k 대 위임 91k다.
+
+| 보는 축 | 싼 쪽 |
+| --- | --- |
+| 단발 요청의 총 토큰 | 직접 |
+| 세션 누적 · 팀장 컨텍스트 | 위임 |
+
+팀장 컨텍스트는 프리픽스에 박혀 이후 모든 턴이 끌고 가고, 워커 컨텍스트는 한 번 쓰고
+사라진다. 쿼터를 어느 축으로 세는지는 여전히 미확인이다.
+
+### 관측 — 위임 게이트가 과발동한다
+
+격리 환경에서 두 번 돌렸다. 둘 다 `GRAPH.md`가 생기지 않았다.
+
+| | 발화 | 결과 |
+| --- | --- | --- |
+| 검증 1 | 스킬 3개의 description 규격 점검 | 위임하지 않고 직접 처리 |
+| 검증 2 | 같은 성격 + `셋을 워커에 나눠서 병렬로 돌려줘` | `collaboration.spawn_agent`로 워커 3개 기동, 기록 0 |
+
+검증 2는 `description`이 명시적 위임 트리거로 적어 둔 표현("나눠서 돌려")을 그대로 썼는데도
+Paseo 경로를 타지 않았다.
+
+### 구조 결함 — 게이트 조건 ③과 2절 Step 1이 충돌한다
+
+같은 상황에 정반대 처방이 있었다.
+
+| 어디 | 조건 | 처방 |
+| --- | --- | --- |
+| 2절 판정 트리 Step 1 | 어떤 작업의 입력이 다른 작업의 출력인가 | 레벨 2 (그래프 실행) |
+| 위임 게이트 ③ | 앞 작업 결과가 있어야 시작하는데 그 앞이 아직인 일 | 팀장이 직접 한다 |
+
+게이트가 2절보다 **앞에** 있으므로 게이트가 이긴다. 의존이 보이는 순간 레벨 2로 내려가지
+못한다. 레벨 2가 한 번도 실행되지 않은 것과 맞는 자리다.
+
+게이트 조건 ②("결과를 받아도 어차피 다시 검토해야 하는 일")는 방향이 거꾸로다. 검토가
+필요하다는 것은 대상이 크다는 뜻이고, 크면 직접 읽는 비용이 더 크다(실측 3). 게다가 8절이
+모든 워커 결과를 검토하게 하므로 모든 위임이 이 조건에 해당한다.
+
+쿼터 통제는 게이트가 아니라 `research-orchestration` 1절의 동시 2·총 5 상한이 한다.
+
+### 측정 함정 — PowerShell `Measure-Object -Line`은 빈 줄을 세지 않는다
+
+`(Get-Content $p | Measure-Object -Line).Lines`가 `wc -l`보다 작게 나온다. 실측 두 건:
+
+| 파일 판본 | `wc -l` | `Measure-Object -Line` | 차 = 빈 줄 수 |
+| --- | ---: | ---: | ---: |
+| `agent-orchestration/SKILL.md` (수정 전) | 462 | 350 | 112 |
+| 같은 파일 (수정 후) | 483 | 367 | 116 |
+
+줄 수를 합격 기준으로 쓰는 점검(`skill-authoring.md`의 500줄 상한)에서 이 차이로 통과·실패가
+갈릴 수 있다. 에이전트가 낸 줄 수가 기대와 다르면 지어낸 값이라고 판단하기 전에 어느 방법으로
+셌는지부터 본다.
