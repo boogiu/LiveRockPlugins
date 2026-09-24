@@ -494,5 +494,5 @@ provider·model·mode·thinking을 직접 정해서 아래 대응대로 `paseo r
 재개는 [references/failure-handling.md](references/failure-handling.md)에 있다. **워커의 실패나 권한 대기를 실제로
 만났을 때, 그리고 `GRAPH.md`나 실행 디렉터리 쓰기가 실패했을 때 읽는다.** 읽기 전에 임의로 재기동하거나 권한을 올리지 않는다 — 분류를 건너뛴 재시도는 같은 실패를 한 번 더 쓰는 것이다.
 
-프로바이더 장애는 다른 provider로 자동 대체하지 않는다. 이 플러그인은 codex 단독 환경을 전제하므로 대체 경로가 없고, 장애로 재개 경로가 사라지면 사용자에게
+프로바이더 장애는 다른 provider로 자동 대체하지 않는다. codex와 claude를 함께 지원하더라도 provider 간 자동 대체는 하지 않으며, 장애로 재개 경로가 사라지면 사용자에게
 알린다.

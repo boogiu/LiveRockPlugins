@@ -1,6 +1,6 @@
 # AGENTS.md
 
-이 저장소는 **codex(Codex CLI) 전용** 플러그인 마켓플레이스다.
+이 저장소는 **codex(Codex CLI)와 Claude Code를 함께 지원하는** 플러그인 마켓플레이스다.
 
 이 문서는 **모든 작업에 공통으로 적용되는 운영 규칙**만 담는다.
 제품의 목적·동작·수용 조건, 마일스톤 계획, 작업 메모는 여기에 쓰지 않는다.
@@ -48,15 +48,18 @@
 ## 5. 저장소 레이아웃
 
 ```
-.agents/plugins/marketplace.json          마켓플레이스 매니페스트 (name: liverock)
-plugins/<플러그인>/.codex-plugin/plugin.json   플러그인 매니페스트
+.agents/plugins/marketplace.json              codex 마켓플레이스 매니페스트 (name: liverock)
+.claude-plugin/marketplace.json               Claude Code 마켓플레이스 매니페스트 (name: liverock)
+plugins/<플러그인>/.codex-plugin/plugin.json   codex 플러그인 매니페스트
+plugins/<플러그인>/.claude-plugin/plugin.json  Claude Code 플러그인 매니페스트
 plugins/<플러그인>/skills/<스킬>/SKILL.md      스킬 본문
 ```
 
-- `plugin.json`에는 `skills` 필드가 있어야 스킬이 로드된다.
-- 이름은 kebab-case를 쓰고, 플러그인 디렉터리 이름·`plugin.json`의 `name`·마켓플레이스
-  매니페스트의 항목 이름을 전부 일치시킨다.
-- 플러그인을 추가·삭제·개명하면 **매니페스트 두 개를 같은 커밋에서** 갱신한다.
+- 이 저장소의 두 `plugin.json`에는 모두 `skills` 필드를 두어 스킬 경로를 명시한다.
+- 이름은 kebab-case를 쓰고, 플러그인 디렉터리 이름·두 `plugin.json`의 `name`·마켓플레이스
+  매니페스트의 항목 이름을 전부 일치시킨다. 두 플러그인 매니페스트의 공통 필드 값도 일치시킨다.
+- 플러그인을 추가·삭제·개명하면 **두 호스트의 마켓플레이스 매니페스트와 두 호스트의 플러그인
+  매니페스트를 같은 커밋에서** 갱신한다.
 - **플러그인 버전은 `main`에 머지하기 직전에 작업된 브랜치에서 올린다.** 개발 중에는 올리지 않으며, 머지 직전 검증 때 올리는 값이 곧 릴리스 버전이다. 변경 규모를 판정해 major·minor·patch 중 무엇을 올릴지와 추천 버전을 사용자에게 알리고, 승인받아 반영한다. 에이전트가 임의로 정해 올리지 않는다.
   - major: 기존 사용 방식이 깨지는 변경 (스킬 삭제·개명, 명령이나 옵션의 호환성 깨짐)
   - minor: 기능 추가 (새 스킬, 새 옵션)
@@ -65,21 +68,24 @@ plugins/<플러그인>/skills/<스킬>/SKILL.md      스킬 본문
 
 ## 6. 스킬 작성 규칙
 
-- **스킬의 신규 제작과 파일 구조 변경은 codex의 `skill-creator`(`~/.codex/skills/.system/skill-creator`)로 한다.**
+- **스킬의 신규 제작과 파일 구조 변경은 작업 호스트의 `skill-creator`로 한다.** codex 세션에서는
+  codex의 `skill-creator`를 쓰고, Claude Code 세션에서는 공식 마켓플레이스의 `skill-creator`
+  플러그인을 쓴다.
   스킬 폴더의 파일 목록이 바뀌는 것이 구조 변경이다 — 파일 추가·삭제·개명·이동, 본문 분리.
   파일 목록이 그대로인 본문 수정은 이 규칙의 대상이 아니다.
-  `skill-creator`를 쓸 수 없는 환경에서 만들어야 하면
+  해당 호스트의 `skill-creator`를 쓸 수 없는 환경에서 만들어야 하면
   [`plugins/liverock-toolkit/references/skill-authoring.md`](plugins/liverock-toolkit/references/skill-authoring.md)의
   규격만으로 진행하고, 규격 전체를 따르지 못했다는 사실을 사용자에게 알린다.
 - 스킬 작성 규격(구조·분량·frontmatter·description·검수 항목)의 출처는
   `plugins/liverock-toolkit/references/skill-authoring.md` 하나다. 이 문서에 옮겨 적지 않는다.
 - `description`의 트리거에는 사용자가 실제로 쓰는 한국어 표현을 넣는다.
-- 개발 중에만 쓰는 스킬은 플러그인 밖 `.agents/skills/<이름>/`에 둔다. codex가 자동 로드하므로
-  설치 없이 저장만으로 반영된다. 반대로 `plugins/<플러그인>/skills/` 아래 스킬은 자동 로드되지 않는다.
+- 개발 중에만 쓰는 스킬은 플러그인 밖에 둔다. codex에서는 `.agents/skills/<이름>/`, Claude Code에서는
+  `.claude/skills/<이름>/`를 쓰며, 각 호스트가 설치 없이 저장된 스킬을 자동 로드한다. 반대로
+  `plugins/<플러그인>/skills/` 아래 스킬은 각 호스트의 플러그인 설치·활성 절차를 거쳐야 로드된다.
 
 ## 7. 코딩 규칙
 
-- 스킬 본문에서 파일을 참조할 때는 **스킬 디렉터리 기준 상대 경로**로 지시한다. `${CLAUDE_PLUGIN_ROOT}`는 codex에 존재하지 않으므로 쓰지 않는다. 스크립트는 그 스킬 안(`skills/<name>/scripts/`)에 두고, 둘 이상의 스킬이 공유할 때만 플러그인 루트의 `scripts/`로 올린다. 스킬끼리 파일을 참조하는 상태로 남겨두지 않는다.
+- 스킬 본문에서 파일을 참조할 때는 **스킬 디렉터리 기준 상대 경로**로 지시한다. `${CLAUDE_PLUGIN_ROOT}`는 Claude Code에서만 제공되고 codex에는 없으므로, 두 호스트에서 공통으로 쓰이는 본문에는 쓰지 않는다. 스크립트는 그 스킬 안(`skills/<name>/scripts/`)에 두고, 둘 이상의 스킬이 공유할 때만 플러그인 루트의 `scripts/`로 올린다. 스킬끼리 파일을 참조하는 상태로 남겨두지 않는다.
 - 사용자 홈 경로, 드라이브 문자, 저장소 절대 경로를 하드코딩하지 않는다.
 - 훅과 스크립트는 실패해도 세션을 중단시키지 않게 만든다. 기대한 입력이 없으면 조용히 통과시키고, 진단은 stderr로 남긴다.
 

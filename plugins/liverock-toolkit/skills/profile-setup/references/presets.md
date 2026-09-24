@@ -167,25 +167,25 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
 
 ## 세트
 
-여덟 역할을 한 번에 등록할 때 쓰는 묶음이다. **세트는 둘이다** — 저가형과 고가형. 제한
-플랜에서 최상위 모델을 여러 자리에 두면 쿼터가 먼저 마르므로, 같은 역할 구성을 두 가지
-비용대로 나눠 둔다. 실제 적용값은 `assets/research-presets-lite.json`과
-`assets/research-presets-pro.json`에 있고 이 표가 그 근거다.
+여덟 역할을 한 번에 등록할 때 쓰는 묶음이다. **세트는 셋이다** — 저가형, 표준형, 고가형.
+저가형과 고가형은 codex 전용이며, 표준형은 판단 역할은 claude, 실행 역할은 codex로 나눈
+혼합 세트다. 실제 적용값은 `assets/research-presets-lite.json`,
+`assets/research-presets-std.json`, `assets/research-presets-pro.json`에 있고 이 표가 그 근거다.
 
 성능 등급은 **모델 이름이 아니라 등급**으로 적는다. 모델 ID는 해석 절차가 조회 결과로 정한다.
 
-| id | name | 저가형 등급 / thinking | 고가형 등급 / thinking | 권한 등급 | icon / color |
-| --- | --- | --- | --- | --- | --- |
-| `team-lead` | 팀장 | 고성능 / `medium` | 고성능 / `high` | 읽기·확인 | compass / violet |
-| `literature-search` | 문헌 탐색 | 저성능 / `low` | 중급 / `low` | 명령 전권 | search / sky |
-| `paper-reading` | 논문 정독 | 중급 / `medium` | 고성능 / `high` | 파일 작성 | book / indigo |
-| `data-prep` | 데이터 정리 | 저성능 / `low` | 중급 / `medium` | 파일 작성 | database / teal |
-| `calculation-modeling` | 계산·모델링 | 중급 / `high` | 고성능 / `high` | 파일 작성 | cpu / blue |
-| `visualization` | 시각화 | 중급 / `medium` | 중급 / `high` | 파일 작성 | palette / pink |
-| `experiment-plan` | 실험 계획 | 고성능 / `high` | 최상위 / `high` | 파일 작성 | flask / amber |
-| `independent-check` | 독립 검토 | 고성능 / `high` | 최상위 / `xhigh` | 읽기·확인 | eye / emerald |
+| id | name | 저가형 등급 / thinking | 표준형 provider / model / thinking | 고가형 등급 / thinking | 권한 등급 | icon / color |
+| --- | --- | --- | --- | --- | --- | --- |
+| `team-lead` | 팀장 | 고성능 / `medium` | claude / `claude-opus-5-5` / `high` | 고성능 / `high` | 읽기·확인 | compass / violet |
+| `literature-search` | 문헌 탐색 | 저성능 / `low` | codex / `gpt-5.6-terra` / `low` | 중급 / `low` | 명령 전권 | search / sky |
+| `paper-reading` | 논문 정독 | 중급 / `medium` | claude / `claude-sonnet-5` / `high` | 고성능 / `high` | 파일 작성 | book / indigo |
+| `data-prep` | 데이터 정리 | 저성능 / `low` | codex / `gpt-5.6-terra` / `medium` | 중급 / `medium` | 파일 작성 | database / teal |
+| `calculation-modeling` | 계산·모델링 | 중급 / `high` | codex / `gpt-5.6-sol` / `high` | 고성능 / `high` | 파일 작성 | cpu / blue |
+| `visualization` | 시각화 | 중급 / `medium` | codex / `gpt-5.6-terra` / `high` | 중급 / `high` | 파일 작성 | palette / pink |
+| `experiment-plan` | 실험 계획 | 고성능 / `high` | claude / `claude-opus-5-5` / `high` | 최상위 / `high` | 파일 작성 | flask / amber |
+| `independent-check` | 독립 검토 | 고성능 / `high` | claude / `claude-opus-5-5` / `xhigh` | 최상위 / `xhigh` | 읽기·확인 | eye / emerald |
 
-**두 세트가 갈리는 곳은 여덟 역할 중 여섯이다.** `visualization`과 `team-lead`만 같은 등급을
+**저가형과 고가형이 갈리는 곳은 여덟 역할 중 여섯이다.** `visualization`과 `team-lead`만 같은 등급을
 쓰고 thinking이 다르다. 고가형이 최상위 모델을 쓰는 자리는 `experiment-plan`과
 `independent-check` 둘뿐이다 — 실험 계획은 쪼갤 수 없어 한 번에 맞아야 하고, 독립 검토는
 마지막 방어선이라 틀리면 뒤가 전부 무너진다.
@@ -198,16 +198,16 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
 `notes`는 프로필이 「이 작업을 맡아도 된다」고 밝히는 경계다. 조회된 `notes` 원문을 기준으로
 보존하며, 등록할 때 임의로 넓히거나 좁히지 않는다.
 
-**아래 근거에 적힌 등급과 thinking 값은 고가형 기준이다.** 저가형은 「세트」 표의 저가형 열을
-쓴다. 근거가 설명하는 것은 절대값이 아니라 **그 역할이 왜 다른 역할보다 높거나 낮은가**이고,
-그 상대 순서는 두 세트에서 같다.
+**아래 근거에 적힌 등급과 thinking 값은 고가형 기준이다.** 저가형과 표준형은 「세트」 표의
+각 열을 쓴다. 근거가 설명하는 것은 절대값이 아니라 **그 역할이 왜 다른 역할보다 높거나 낮은가**이고,
+그 상대 순서는 세 세트에서 같다.
 
 ### `team-lead` — 팀장
 
 - `notes`: `요청의 단계·담당 역할·실행 순서를 정하고 결과를 취합한다. 작업 자체는 담당 워커에게 맡기고 직접 착수하지 않는다.`
 - 권한 근거: 라우팅 판단과 취합만 하므로 파일을 직접 고칠 이유가 없다.
 - thinking 근거: 라우팅이 틀리면 그 아래 작업이 전부 어긋나고, 틀린 배정은 워커가 결과를 낼
-  때까지 드러나지 않는다. 두 세트 모두 고성능 등급을 쓴다.
+  때까지 드러나지 않는다. 저가형과 고가형은 모두 고성능 등급을 쓰며, 표준형은 `high` thinking을 쓴다.
 
 ### `literature-search` — 문헌 탐색
 

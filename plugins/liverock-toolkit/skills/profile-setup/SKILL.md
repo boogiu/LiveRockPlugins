@@ -95,7 +95,7 @@ Paseo 프로필은 사람이 정한 시작 구성 묶음이다. 팀장(오케스
    등급」에 있다.
 5. **5단계 — 실제 값 제시.** 프리셋에 채워 표로 제시한다.
 
-**여기는 codex 단독 환경을 전제한다.** 조회 결과가 비거나 실패했을 때 갈아탈 다른 provider가
+**여기는 codex provider만 활성인 환경의 처리다.** 조회 결과가 비거나 실패했을 때 갈아탈 다른 provider가
 없으므로, 대체 provider를 찾아 진행하지 말고 무엇이 없는지 알리고 멈춘다.
 
 **조회 실패는 "없음"·"0개"와 다르다.** 목록에 있는데 `status`가 `available`이 아닌
@@ -120,10 +120,12 @@ MCP를 쓸 수 없으면 `paseo provider ls --json`과
 | 사용자의 선택 | 다음 동작 |
 | --- | --- |
 | **저가형 (기본 제안)** | [`assets/research-presets-lite.json`](assets/research-presets-lite.json)을 아래 「적용 전 조회 대조」에 통과시킨 뒤 2절로 간다. |
+| 표준형 | [`assets/research-presets-std.json`](assets/research-presets-std.json)으로 같은 절차를 밟는다. |
 | 고가형 | [`assets/research-presets-pro.json`](assets/research-presets-pro.json)으로 같은 절차를 밟는다. |
 | 처음부터 설계 | 1-3 이하의 질문 루프를 탄다. |
 
-**기본 제안은 저가형이다.** 고가형은 선택지로만 보여 주고, 두 세트가 어디서 갈리는지를 알린다 —
+**기본 제안은 저가형이다.** 표준형은 판단 역할을 claude, 실행 역할을 codex로 나눈 혼합 세트다.
+저가형과 고가형은 codex 전용이다. 고가형은 선택지로만 보여 주고, 저가형과 고가형의 차이를 알린다 —
 여덟 역할 중 **여섯**이 다른 등급을 쓴다(`visualization`과 `team-lead`만 등급이 같고 thinking이
 다르다). 그중 **최상위 모델을 쓰는 자리는 실험 계획과 독립 검토 둘뿐이고**, 나머지 넷은 저가형이
 한 등급씩 낮은 모델을 쓴다. 등급별 값은 `references/presets.md`의 「세트」 표에 있다.
@@ -140,29 +142,31 @@ python scripts/show_profile_colors.py
 
 #### 적용 전 조회 대조
 
-두 JSON의 `model`과 `thinkingOptionId`는 **한 시점에 정해 박아 둔 값이다.** 그 환경에 없는
+세 JSON의 `model`과 `thinkingOptionId`는 **한 시점에 정해 박아 둔 값이다.** 그 환경에 없는
 모델이라도 프로필 등록은 그대로 성공하고, 그 프로필로 워커를 띄울 때 비로소 기동이 실패한다.
 등록 결과만 봐서는 드러나지 않으므로 **`--apply` 전에** 아래를 끝낸다.
 
-1. `list_models`로 codex의 실제 모델 목록과 모델별 `thinkingOptions`를 조회한다. 1-1에서 이미
-   받았으면 그 결과를 쓰고 다시 조회하지 않는다.
-2. JSON의 각 `model`이 그 목록에 있는지 대조한다. `thinkingOptionId`도 **그 모델의**
-   `thinkingOptions`에 있는지 같이 본다 — 지원하는 등급은 모델마다 다르다.
-3. 없는 것만 **같은 등급의 조회된 모델**로 치환한다. 등급 판정은 `references/presets.md`의
-   「3단계 — 유효한 기본 후보」를 따른다. 목록에 있는 값은 손대지 않는다.
+1. `list_models`로 JSON의 각 프로필 `provider`별 실제 모델 목록과 모델별 `thinkingOptions`를
+   조회한다. 1-1에서 이미 받은 provider별 결과가 있으면 그 결과를 쓰고 다시 조회하지 않는다.
+2. JSON의 각 `model`을 **그 프로필의 `provider` 모델 목록에서만** 대조한다. `thinkingOptionId`도
+   **그 모델의** `thinkingOptions`에 있는지 같이 본다 — 지원하는 등급은 모델마다 다르다.
+3. 없는 것만 **같은 provider 안의 같은 등급 조회 모델**로 치환한다. 등급 판정은
+   `references/presets.md`의 「3단계 — 유효한 기본 후보」를 따른다. 치환해도 프로필의 `provider`는
+   바꾸지 않으며, 목록에 있는 값은 손대지 않는다.
 4. **치환한 것을 사용자에게 알린다.** 역할마다 무엇을 무엇으로 바꿨고 왜 바꿨는지 적는다.
    조용히 바꾸면 사용자가 승인한 세트와 다른 것이 등록된다.
-5. 같은 등급의 대체 후보도 없으면 **그 역할은 등록하지 않고 사용자 판단을 받는다.** 남은
-   역할만 등록할지 다른 모델을 지정할지 묻고, 임의로 아무 모델이나 채우지 않는다.
+5. 같은 provider 안에 같은 등급의 대체 후보도 없으면 **다른 provider로 옮기지 않는다.** 해당
+   provider에서 대체를 찾지 못했다고 사용자에게 알리고 적용을 멈춘다. 임의로 아무 모델이나
+   채우거나 남은 역할만 등록하지 않는다.
 
 `thinkingOptionId`를 낮추는 것은 이 절차의 권한이 아니다. 어느 후보도 그 등급을 지원하지
 않으면 `references/presets.md`의 「역할별 thinking 등급」대로 낮춘 값과 근거를 제시해 승인받는다.
 
 #### 세트를 바꿀 때
 
-두 JSON은 `id` 여덟 개가 같다. 그래서 한 세트를 등록한 뒤 다른 세트를 그냥 적용하면 스크립트가
+세 JSON은 `id` 여덟 개가 같다. 그래서 한 세트를 등록한 뒤 다른 세트를 그냥 적용하면 스크립트가
 `CONFLICT`로 막는다(2절 「id가 겹칠 때」). **`--update`를 붙이면 그 여덟 개가 제자리에서 교체되고
-배열은 8건 그대로다** — 프로필이 16건으로 불어나지 않는다. 저가형 ↔ 고가형 전환이 명령 하나인
+배열은 8건 그대로다** — 프로필이 16건으로 불어나지 않는다. 저가형·표준형·고가형 전환이 명령 하나인
 이유가 이것이다. 바꾸기 전에 어느 세트에서 어느 세트로 가는지 확인받는다. `$modes`는 2절에서
 만든 경로다.
 
@@ -485,7 +489,7 @@ Paseo 설치의 설정은 이 명령으로 복원할 수 없다.
 
 | 문서 | 읽는 시점 |
 | --- | --- |
-| [`assets/research-presets-lite.json`](assets/research-presets-lite.json) · [`assets/research-presets-pro.json`](assets/research-presets-pro.json) | 1-2에서 사용자가 저가형·고가형 세트를 고른 뒤 「적용 전 조회 대조」를 거쳐 dry-run·`--apply`의 INPUT으로 줄 때. |
+| [`assets/research-presets-lite.json`](assets/research-presets-lite.json) · [`assets/research-presets-std.json`](assets/research-presets-std.json) · [`assets/research-presets-pro.json`](assets/research-presets-pro.json) | 1-2에서 사용자가 저가형·표준형·고가형 세트를 고른 뒤 「적용 전 조회 대조」를 거쳐 dry-run·`--apply`의 INPUT으로 줄 때. |
 | [`references/presets.md`](references/presets.md) | 1-1의 provider·모델 해석 절차를 실행할 때, 1-2에서 연구 역할 8개 세트를 제시할 때, 권한 등급·역할별 thinking 등급·`notes` 길이 규칙이 필요할 때. |
 | [`references/provider-modes.md`](references/provider-modes.md) | `modeId`의 유효 값과 provider별 의미 차이를 확인할 때, 모델별 `thinkingOptions`의 생김새와 함정을 볼 때, `featureValues` 키 이름이 헷갈릴 때. |
 | [`references/FORM.md`](references/FORM.md) | 사용자에게 보여줄 화면을 만들기 직전에 해당 절만 범위 읽기로 — 1-3의 「질문」, 1-6의 「프로필 확인」, 4절의 「삭제 확인」·「값 변경 확인」. |

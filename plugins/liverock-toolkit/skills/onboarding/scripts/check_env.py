@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Paseo 데몬 없이 확인할 수 있는 온보딩 점검 항목을 한 번에 돌린다.
 
-점검 대상은 다섯 가지다 — codex 로그인(10), 플러그인 설치·활성(1), Python 3(2),
-네트워크(3), 실행 기록 디렉터리(8). 10번이 맨 앞이다: 로그인이 안 돼 있으면 codex 자체를
-못 쓰고, 1번은 로그인된 상태를 전제한다. Paseo 데몬에 묻는 항목(4·5·6·9)과 프로필(7)은
-여기서 다루지 않는다 — 본문 2~4단계에서 `paseo` CLI로 본다.
+점검 대상은 호스트에 따라 다르다. codex에서는 로그인(10), 플러그인 설치·활성(1), Python 3(2),
+네트워크(3), 실행 기록 디렉터리(8)를 본다. Claude Code에서는 codex 로그인은 해당 없으므로
+건너뛰고 Claude 플러그인 설치·활성(1)과 공통 항목을 본다. Paseo 데몬에 묻는 항목(4·5·6·9)과
+프로필(7)은 여기서 다루지 않는다 — 본문 2~4단계에서 `paseo` CLI로 본다.
 
 표 아래에 provider CLI(codex·claude)의 **실제 실행 경로**를 함께 낸다. 9번(provider 실행
 경로) 판정 자체는 `paseo provider ls --json`으로 하지만, 실패했을 때 사용자가 Paseo 설정에
@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -27,6 +28,8 @@ import urllib.error
 import urllib.request
 
 PLUGIN_ID = "liverock-toolkit@liverock"
+PLUGIN_NAME = "liverock-toolkit"
+CLAUDE_MARKETPLACE_PARTS = (".claude-plugin", "marketplace.json")
 ORCH_PARTS = (".agents", "orchestration")
 OPENALEX_PROBE = "https://api.openalex.org/works?per-page=1"
 PROVIDER_CLIS = ("codex", "claude")
@@ -250,41 +253,119 @@ def check_login():
     }
 
 
-def check_plugin():
-    """1. 플러그인 설치·활성 — codex plugin list에서 installed, enabled를 본다."""
-    result = run(["codex", "plugin", "list"])
+def claude_marketplace_name(repo_root):
+    """저장소의 Claude Code marketplace 매니페스트에서 이름을 읽는다."""
+    if repo_root is None:
+        return None
+    path = os.path.join(repo_root, *CLAUDE_MARKETPLACE_PARTS)
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as source:
+            value = json.load(source)
+    except (OSError, ValueError) as exc:
+        warn("Claude marketplace 매니페스트를 읽지 못했다: " + repr(exc))
+        return None
+    name = value.get("name") if isinstance(value, dict) else None
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    warn("Claude marketplace 매니페스트에 name이 없다")
+    return None
+
+
+def claude_install_fix(repo_root):
+    """검증된 marketplace 이름이 있을 때만 Claude 설치 명령을 만든다."""
+    marketplace = claude_marketplace_name(repo_root)
+    if marketplace:
+        return "claude plugin install " + PLUGIN_NAME + "@" + marketplace + "를 실행한다"
+    return "저장소 루트에서 claude --plugin-dir ./plugins/liverock-toolkit 로 로컬 플러그인을 직접 로드한다"
+
+
+def claude_plugin_block(lines, start):
+    """Claude plugin list에서 식별자 다음의 같은 플러그인 블록을 돌려준다."""
+    block = [lines[start].strip()]
+    for raw in lines[start + 1:]:
+        # 다음 최상위 `plugin@marketplace` 행부터는 다른 플러그인 블록이다.
+        if raw == raw.lstrip() and "@" in raw:
+            break
+        block.append(raw.strip())
+    return block
+
+
+def check_plugin(host, repo_root=None):
+    """1. 호스트별 plugin list에서 liverock-toolkit 설치·활성을 본다."""
+    cli = host
+    result = run([cli, "plugin", "list"])
     if result is None:
         return {
             "status": UNKNOWN,
-            "detail": "codex CLI를 실행하지 못했다",
-            "fix": "codex CLI가 설치돼 있고 PATH에 있는지 확인한다",
+            "detail": cli + " CLI를 실행하지 못했다",
+            "fix": cli + " CLI가 설치돼 있고 PATH에 있는지 확인한다",
         }
     code, out, err = result
     if code != 0:
         first = (err.strip().splitlines() or ["출력 없음"])[0]
         return {
             "status": UNKNOWN,
-            "detail": "codex plugin list 종료코드 " + str(code),
+            "detail": cli + " plugin list 종료코드 " + str(code),
             "fix": first,
         }
-    line = None
-    for raw in out.splitlines():
-        if PLUGIN_ID in raw:
-            line = raw.strip()
-            break
-    if line is None:
+    lines = out.splitlines()
+    if host == "codex":
+        line = next((raw.strip() for raw in lines if re.search(
+            r"(?<![A-Za-z0-9_.@-])" + re.escape(PLUGIN_ID) + r"(?![A-Za-z0-9_.@-])", raw
+        )), None)
+        if line is None:
+            return {
+                "status": FAIL,
+                "detail": PLUGIN_ID + "이(가) 목록에 없다",
+                "fix": "codex plugin add " + PLUGIN_ID,
+            }
+        low = line.lower()
+        if "installed" in low and "enabled" in low:
+            return {"status": PASS, "detail": line, "fix": ""}
         return {
             "status": FAIL,
-            "detail": PLUGIN_ID + "이(가) 목록에 없다",
-            "fix": "codex plugin add " + PLUGIN_ID,
+            "detail": line,
+            "fix": "installed, enabled가 아니다. codex plugin add를 다시 실행한다",
         }
-    low = line.lower()
-    if "installed" in low and "enabled" in low:
-        return {"status": PASS, "detail": line, "fix": ""}
+
+    identifier = None
+    block = None
+    pattern = re.compile(r"(?<![A-Za-z0-9_.-])(" + re.escape(PLUGIN_NAME) + r"@[A-Za-z0-9_.-]+)(?![A-Za-z0-9_.-])")
+    for index, raw in enumerate(lines):
+        match = pattern.search(raw)
+        if match:
+            identifier = match.group(1)
+            block = claude_plugin_block(lines, index)
+            break
+    if block is None:
+        return {
+            "status": FAIL,
+            "detail": PLUGIN_NAME + "이(가) 목록에 없다",
+            "fix": claude_install_fix(repo_root),
+        }
+
+    status_line = next((line for line in block if line.lower().startswith("status:")), None)
+    if status_line is None:
+        return {
+            "status": UNKNOWN,
+            "detail": identifier + "의 Status를 읽지 못했다",
+            "fix": "claude plugin list 출력을 사용자에게 전하고 설치·활성 상태를 직접 확인한다",
+        }
+    status = status_line.partition(":")[2].lower()
+    status = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", status)
+    status_tokens = re.findall(r"[a-z]+", status)
+    if status_tokens == ["enabled"]:
+        return {"status": PASS, "detail": identifier + " / " + status_line, "fix": ""}
+    if status_tokens == ["disabled"]:
+        fix = "claude plugin enable " + identifier + "를 실행한다"
+    else:
+        fix = "Status 값을 해석하지 못했다. claude plugin list 출력을 사용자에게 전한다"
     return {
-        "status": FAIL,
-        "detail": line,
-        "fix": "installed, enabled가 아니다. codex plugin add를 다시 실행한다",
+        "status": FAIL if status_tokens == ["disabled"] else UNKNOWN,
+        "detail": identifier + " / " + status_line,
+        "fix": fix,
     }
 
 
@@ -421,6 +502,16 @@ def render_table(rows):
     return "\n".join(out)
 
 
+def select_host(requested):
+    """점검할 호스트를 고른다. Claude Code 표시는 codex 항목을 해당 없음으로 만든다."""
+    if requested != "auto":
+        return requested
+    if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+        return "claude"
+    # 판별 단서가 없을 때는 기존 codex 실행 결과를 그대로 유지한다.
+    return "codex"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=(
@@ -429,6 +520,12 @@ def main(argv=None):
         )
     )
     parser.add_argument("--json", action="store_true", help="결과를 JSON으로 출력한다")
+    parser.add_argument(
+        "--host",
+        choices=("auto", "codex", "claude", "both"),
+        default="auto",
+        help="점검 호스트. 기본 auto는 Claude Code 환경을 감지하고, 그 밖에는 codex로 본다",
+    )
     parser.add_argument(
         "--repo-root",
         default=None,
@@ -450,13 +547,17 @@ def main(argv=None):
 
     repo_root = args.repo_root or find_repo_root(os.getcwd())
 
-    checks = (
-        (10, "codex 로그인", check_login),
-        (1, "플러그인 설치·활성", check_plugin),
+    host = select_host(args.host)
+    checks = []
+    if host in ("codex", "both"):
+        checks.extend(((10, "codex 로그인", check_login), (1, "플러그인 설치·활성", lambda: check_plugin("codex", repo_root))))
+    if host in ("claude", "both"):
+        checks.append((1, "Claude 플러그인 설치·활성", lambda: check_plugin("claude", repo_root)))
+    checks.extend((
         (2, "Python 3", check_python),
         (3, "네트워크", lambda: check_network(args.network_timeout)),
         (8, "실행 기록 디렉터리", lambda: check_orchestration_dir(repo_root)),
-    )
+    ))
 
     rows = []
     for num, name, fn in checks:
@@ -482,11 +583,16 @@ def main(argv=None):
     if args.json:
         payload = {
             "repo_root": repo_root,
+            "host": host,
             "checks": rows,
             "provider_clis": providers,
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
+        if host == "claude":
+            print("점검 호스트: claude (10번 codex 로그인은 해당 없음)")
+        elif host == "both":
+            print("점검 호스트: codex·claude")
         print(render_table(rows))
         if providers:
             print(render_providers(providers))
