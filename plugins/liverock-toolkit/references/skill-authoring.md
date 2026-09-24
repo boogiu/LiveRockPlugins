@@ -160,8 +160,9 @@ description: 무엇을 하는지. 그리고 어떤 요청일 때 쓰는지. "실
 
 ## 8. 이 저장소에서만 적용되는 제약
 
-- **`liverock-toolkit`은 codex 전용이다.** 매니페스트는 `.codex-plugin/plugin.json`과
-  `.agents/plugins/marketplace.json` 두 개만 둔다. `commands/`, `agents/`, `hooks/`,
+- **`liverock-toolkit`은 codex와 Claude Code를 함께 지원한다.** 매니페스트는
+  `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json`, `.agents/plugins/marketplace.json`,
+  `.claude-plugin/marketplace.json` 네 개를 둔다. `commands/`, `agents/`, `hooks/`,
   `.mcp.json`은 claude 전용 컴포넌트라 codex가 읽지 않으므로 여기서는 쓰지 않는다.
   핵심 동작은 전부 `SKILL.md`에 둔다.
 - **파일 참조는 스킬 디렉터리 기준 상대 경로로 쓴다.** `${CLAUDE_PLUGIN_ROOT}`는 codex에
@@ -172,7 +173,7 @@ description: 무엇을 하는지. 그리고 어떤 요청일 때 쓰는지. "실
 - **홈 경로, 드라이브 문자, 저장소 절대 경로를 하드코딩하지 않는다.** 실행 환경에서 구한다.
 - **인코딩** — `.md`, `.json`, `.ps1`, `.py`는 UTF-8(BOM 없음)로 쓴다. `.bat`/`.cmd`에는
   한글을 쓰지 않는다. 한글이 든 `.ps1`은 pwsh 7 기준으로 쓴다.
-- **스킬을 추가하면 `.agents/plugins/marketplace.json` 등록 상태와 `plugin.json`의
+- **스킬을 추가하면 두 호스트의 마켓플레이스 매니페스트 등록 상태와 두 `plugin.json`의
   `version`을 같이 본다.** 버전은 `main`에 머지하기 직전에 올리고, 올릴 값은 사용자에게
   확인받는다.
 
