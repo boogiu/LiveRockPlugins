@@ -4,9 +4,9 @@
 설계를 요청했거나 이 세트를 거절하면 쓰지 않는다.
 
 프리셋이 정의하는 것은 역할, 요구 성능 등급, 역할별 thinking 등급, 권한 등급, `notes` 다섯
-가지다. **프리셋은 모델 이름을 정하지 않는다.** 플랜에 따라 쓸 수 있는 모델이 다르고, 조회되지
-않는 모델을 배정하면 워커가 기동 자체를 못 한다. `provider`와 `model`은 아래 해석 절차가
-실행 시점의 조회 결과로 만든다.
+가지와 세트별 모델 지정이다. 저가형과 고가형은 모델을 성능 등급으로, 표준형은 `provider`와
+모델 ID로 정한다. 모델 ID를 적더라도 적용 전에는 provider별 조회 결과와 대조하며, 조회되지
+않는 모델을 배정하면 워커가 기동 자체를 못 한다.
 
 ## 해석 절차
 
@@ -172,7 +172,10 @@ MCP `list_providers`로 활성 provider 목록을 받는다.
 혼합 세트다. 실제 적용값은 `assets/research-presets-lite.json`,
 `assets/research-presets-std.json`, `assets/research-presets-pro.json`에 있고 이 표가 그 근거다.
 
-성능 등급은 **모델 이름이 아니라 등급**으로 적는다. 모델 ID는 해석 절차가 조회 결과로 정한다.
+저가형과 고가형은 모델 ID 대신 **성능 등급**으로 적고, 표준형은 `provider`와 모델 ID를 직접
+적는다. 표준형의 모델 ID도 적용 전 조회 결과와 대조하며, 없는 값은 같은 provider 안의 같은
+등급 모델로만 치환한다. 같은 provider에 대체 후보가 없으면 알리고 적용을 멈추며, 다른
+provider의 모델로 치환하지 않는다.
 
 | id | name | 저가형 등급 / thinking | 표준형 provider / model / thinking | 고가형 등급 / thinking | 권한 등급 | icon / color |
 | --- | --- | --- | --- | --- | --- | --- |
