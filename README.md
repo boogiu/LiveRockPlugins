@@ -1,6 +1,6 @@
 # LiveRockPlugins
 
-화학공학 연구 업무용 Codex CLI 플러그인 마켓플레이스다. made by 부기게이 support 한제
+화학공학 연구 업무용 Codex CLI 플러그인 마켓플레이스다. 
 
 마켓플레이스 매니페스트: [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json)
 
