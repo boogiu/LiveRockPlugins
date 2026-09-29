@@ -65,6 +65,11 @@ provider를 병합하고, DEV 데몬에 넣을 `agents` 블록을 출력한다. 
 - **확인**: 테스트 에이전트에게 "로드된 plugin과 skill 목록을 이름만 전부 출력해"를 시켜
   개발 중인 플러그인의 스킬만 보이고 DEV 플러그인이 없는지 본다.
 
+**스킬로 실행**: 이 저장소에서 Claude Code나 Codex를 열고 "`<스킬>` 스킬로 테스트 환경에서 실행해봐"라고 하면
+개발 전용 스킬 `plugin-test-env`(`.claude/skills/`, `.agents/skills/`에 같은 본문)가 위 절차를 대신 한다 —
+수정본 worktree 연결, 테스트 에이전트 실행, 판정·보고·정리. 직접 부를 때는 Claude `/plugin-test-env`,
+Codex `$plugin-test-env`. 두 사본은 같은 내용을 유지한다.
+
 Paseo 없이 Claude만 확인할 때:
 
 ```powershell
