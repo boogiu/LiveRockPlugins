@@ -15,6 +15,9 @@ codex plugin add liverock-toolkit@liverock
 
 갱신은 `codex plugin add`를 다시 실행하면 된다.
 
+개발 중인 플러그인만 올라간 격리 환경에서 테스트하는 방법은
+[`tools/test-env/README.md`](tools/test-env/README.md)에 있다.
+
 ## 등록·설치·사용 흐름
 
 ```mermaid
