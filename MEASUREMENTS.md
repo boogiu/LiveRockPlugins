@@ -619,3 +619,53 @@ Codex는 npm 설치본이고 `codex-code-mode-host.exe`는 그 안에 한 개만
 - 스킬 발동 여부 — 설치본이 없다.
 - 격리 홈에서의 실행 — 격리 홈은 로그인이 따로라 세션이 뜨지 않는다.
 - 같은 시험의 반복 재현성.
+
+## 2026-09-29 — codex 읽기 장애 해소, 사용량 데이터 경로, 프로필 적용
+
+### 실측 1 — codex `0.159`에서 워커가 파일을 읽는다
+
+`simple-explore` 프로필 값(codex `gpt-6-luna` · `full-access` · `low`)으로 띄운 워커에게 파일의
+SHA-256 앞 16자와 바이트 크기를 읽게 했다. 정답을 미리 구해 둔 값과 **둘 다 정확히 맞았고**
+실행한 명령과 출력이 붙어 왔다.
+
+인계 이후 `CreateProcessAsUserW failed`로 codex 워커가 읽기를 못 해서 모든 워커를 claude로
+우회했었다. codex `0.155.0` → `0.159.0` 업데이트 뒤 해소됐다. 이후 워커는 프로필대로 띄운다.
+
+**판별력 있는 시험법**: 이 장애는 "못 읽는데 그럴듯하게 지어내는" 형태였다. 줄 내용이나 줄
+수는 지어낼 수 있어 판별력이 없다. **추측으로 맞힐 수 없는 값**(해시)을 물어야 한다.
+
+### 실측 2 — 요금제 한도는 Paseo 데몬이 두 provider 모두 준다
+
+Paseo 플러그인 API `providers.listUsage()`가 codex와 Claude의 한도를 같은 형식으로 준다.
+데몬 캐시 값이라 응답 5ms.
+
+| | codex | Claude |
+| --- | --- | --- |
+| 로컬 로그에 한도가 있나 | 있다(`rate_limits`) — 단 마지막 요청 시점 스냅샷 | **없다.** `~/.claude` 전체에서 한도 키 0건 |
+| `listUsage()` | 주간 창 1개 | `five_hour` · `weekly` · `weekly_model_<모델>` |
+
+- Paseo가 codex **주간**(10080분) 창에 `label: "Session"`을 붙여 보낸다. 응답에 창 길이 필드가 없다.
+- codex 0%일 때 `resetsAt`이 "지금+7일"로 계속 밀린다 — 창이 아직 시작되지 않은 것이다.
+- 데몬 캐시의 갱신 주기는 확인하지 못했다.
+
+### 실측 3 — 토큰 로그의 함정
+
+| | codex | Claude |
+| --- | --- | --- |
+| 값의 성격 | 세션 안 **누적값**. 이벤트마다 더하면 수십 배로 부푼다 | 메시지별 증분이지만 **중복 기록**된다 |
+| 올바른 합계 | 세션별 마지막 누적값 | `(message.id, requestId)`로 중복 제거 |
+| 중복 제거 안 했을 때 | — | **2.09배** (342,628,242 → 716,748,525) |
+| 위치 | `sessions/YYYY/MM/DD/`와 `archived_sessions/` **두 곳** | `projects/<프로젝트>/*.jsonl` |
+| 교차 확인 | 세션별 마지막 합 = `state_5.sqlite` `threads.tokens_used` 합 (5,926,589) | — |
+
+Claude는 usage가 **대화 원문과 같은 줄**에 있어서, 숫자만 꺼내지 않으면 원문이 새어 나간다.
+로그 시각은 UTC다.
+
+### 실측 4 — 프로필 적용의 절차상 함정
+
+- `manage_profiles.py --apply`는 `--modes-file`(provider별 실재 모드 ID)이 있어야 쓴다.
+- `paseo provider ls --json`의 `modes`는 **라벨을 이어 붙인 문자열**이라 모드 ID를 얻을 수 없다.
+  MCP `list_providers`가 모드 ID를 준다.
+- codex의 데몬 기본 모드가 `auto-review`다. 프로필 없이 띄운 codex 에이전트는 `auto-review`로
+  뜬다. "`auto-review`는 쓰지 않는다"는 결정과 어긋나는 기본값이다.
+- `paseo` CLI(`0.8.0`, npm 전역)와 데몬(`0.10.1`, 앱 번들)의 버전이 다르다.
