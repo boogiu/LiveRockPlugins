@@ -53,6 +53,7 @@
 plugins/<플러그인>/.codex-plugin/plugin.json   codex 플러그인 매니페스트
 plugins/<플러그인>/.claude-plugin/plugin.json  Claude Code 플러그인 매니페스트
 plugins/<플러그인>/skills/<스킬>/SKILL.md      스킬 본문
+paseo-plugins/<플러그인>/paseo-plugin.json      Paseo 앱 플러그인 매니페스트
 ```
 
 - 이 저장소의 두 `plugin.json`에는 모두 `skills` 필드를 두어 스킬 경로를 명시한다.
@@ -65,6 +66,8 @@ plugins/<플러그인>/skills/<스킬>/SKILL.md      스킬 본문
   - minor: 기능 추가 (새 스킬, 새 옵션)
   - patch: 결함 수정, 문서 수정, 내부 정리
   codex는 `plugin add` 재실행만으로 갱신된다.
+- `paseo-plugins/<플러그인>/`은 Paseo 앱 플러그인이다. codex·Claude Code 매니페스트와 별개로
+  Paseo 앱의 Settings → Plugins에서 설치하고, 버전은 그 플러그인의 `package.json`이 갖는다.
 
 ## 6. 스킬 작성 규칙
 

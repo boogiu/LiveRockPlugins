@@ -1,0 +1,7 @@
+{
+  "id": "usage-panel",
+  "description": "codex와 Claude의 남은 사용 한도와 이 PC에서 쓴 토큰 양을 보여 줍니다",
+  "requirements": {
+    "paseo": ">=0.8.0"
+  }
+}

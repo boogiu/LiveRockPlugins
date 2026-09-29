@@ -32,7 +32,33 @@ flowchart LR
 
 | 플러그인 | 버전 | 설명 |
 |---|---|---|
-| [`liverock-toolkit`](plugins/liverock-toolkit/.codex-plugin/plugin.json) | 0.4.2 | 화학공학 연구 업무용. 환경 온보딩, 프로필 구성, 워커 오케스트레이션, 문헌 분석, 실험 계획 |
+| [`liverock-toolkit`](plugins/liverock-toolkit/.codex-plugin/plugin.json) | 0.5.0 | 화학공학 연구 업무용. 환경 온보딩, 프로필 구성, 워커 오케스트레이션, 문헌 분석, 실험 계획 |
+
+## Paseo 앱 플러그인
+
+codex·Claude Code 플러그인과 별개로 Paseo 앱에 직접 설치한다. 버전은 각 플러그인의
+`package.json`에 있다.
+
+| 플러그인 | 버전 | 설명 |
+|---|---|---|
+| [`usage-panel`](paseo-plugins/usage-panel/paseo-plugin.json) | 0.1.0 | 에이전트 입력창의 **사용량** 버튼으로 여는 오른쪽 패널. 위에는 codex·Claude 요금제 한도(남은 %, 리셋까지 남은 시간), 아래에는 이 PC에서 쓴 토큰 양(오늘 합계, 최근 7일 대화별) |
+
+### 설치
+
+Paseo 앱에서 설치한다. `paseo` CLI나 npm은 필요 없다(Paseo 0.8.0 이상).
+
+1. **Settings → Plugins**에서 **Enable plugins**가 꺼져 있으면 켠다. 플러그인은 PC의 파일에
+   접근할 수 있는 코드이므로 믿을 수 있는 소스만 설치한다.
+2. **Plugin source**에 아래 중 하나를 붙여 넣고 **Install plugin**을 누른다.
+   - GitHub: `github:boogiu/LiveRockPlugins:paseo-plugins/usage-panel`
+   - 로컬 클론: `<클론한 폴더의 절대 경로>/paseo-plugins/usage-panel` — 앱은 `~`를 풀지 않는다
+3. 에이전트 입력창의 **사용량** 버튼을 누르면 오른쪽 패널이 열린다. 열 때 한 번 읽고, 다시 읽으려면 패널의 **새로고침**을 누른다.
+
+CLI가 있으면 `paseo plugin add boogiu/LiveRockPlugins:paseo-plugins/usage-panel`로도 된다.
+
+한도는 Paseo가 계정에서 받아 온 값이라 다른 PC에서 쓴 양까지 포함하고, 토큰 양은 이 PC의
+`~/.codex`·`~/.claude` 기록만 센다. Claude 한도는 claude.ai 계정(Pro/Max) 로그인에서 나오며,
+API 키로 쓰는 경우에는 보이지 않을 수 있다.
 
 ## `liverock-toolkit` 스킬
 
