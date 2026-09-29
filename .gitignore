@@ -6,7 +6,8 @@
 !/.agents/plugins/marketplace.json
 !/.agents/skills/
 
-/.claude/
+/.claude/*
+!/.claude/skills/
 /.skywork/
 
 __pycache__/
