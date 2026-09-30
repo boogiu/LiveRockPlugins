@@ -94,9 +94,8 @@ description: 팀장은 작업 요청에 착수하기 전에 이 스킬을 읽고
 
 ### 워크스페이스를 고른다
 
-`paseo workspace ls --json`으로 조회해 `cwd`가 대상 저장소인 워크스페이스를 고르고, 그 `workspaceId`를 `paseo run --workspace`에
-넘긴다. 생략하면 새 워크스페이스가 만들어진다. 워크스페이스 ID를 하드코딩하지 않고 매번 조회한다. 결과 파일을 서로 읽어야 하는 작업들은 같은 워크스페이스에
-둔다. worktree 격리는 사용자가 명시할 때만 쓰고, 그때는 각 worktree 경로를 받아 그 경로를 읽어야 하는 워커의 브리핑에 넣는다.
+워커는 **팀장 자신의 워크스페이스**에 띄운다 — `paseo run`에 `--workspace`를 주지 않으면 Paseo가 호출한 팀장(`PASEO_AGENT_ID`)의 워크스페이스에 넣는다.
+`paseo workspace ls`로 `cwd`가 같은 워크스페이스를 골라 `--workspace`로 넘기지 않는다 — 같은 폴더를 쓰는 워크스페이스가 여럿이면 다른 쪽에 들어가, 사용자가 일을 시킨 곳과 워커가 보이는 곳이 갈리고 워커가 그쪽 탭으로 흩어진다. worktree 격리는 사용자가 명시할 때만 쓰고, 그때는 각 worktree 경로를 받아 그 경로를 읽어야 하는 워커의 브리핑에 넣는다.
 
 ### 완료 대기 수단
 
@@ -281,7 +280,7 @@ provider·model·mode·thinking을 직접 정해서 아래 대응대로 `paseo r
 | `modeId` | `--mode` |
 | `thinkingOptionId` | `--thinking` |
 
-- 워크스페이스는 `--workspace {workspaceId}`로 명시한다(1절).
+- `--workspace`는 주지 않는다 — 팀장의 워크스페이스로 들어간다(1절).
 - `--title`은 `{역할 이름}: 한 줄 요약`이고, 라벨은 `--label task={한 마디} --label run={실행 식별자}
   --label node={노드 ID}`다. `run`은 이번 실행의 실행 디렉터리 이름 `{YYYY-MM-DD}-{슬러그}`이며 재개가
   이 라벨로 자식을 찾는다(10절). `--title`은 60자 상한이므로 그 안에서 만들고, 이름이 길어 요약 여유가
