@@ -159,7 +159,8 @@
 
 ## 주입
 
-실행 중인 워커에 지시를 보내는 수단은 `paseo send <id> <prompt>`다. 폐기할 때만
+실행 중인 워커에 지시를 보내는 수단은 `paseo send <id> <prompt>`다. 지시가 여러 줄이면 `nodes/{노드 ID}_work/`에
+파일로 저장하고 `<prompt>`에는 그 파일을 읽으라는 한 줄만 넘긴다 — Windows `paseo.cmd`가 첫 줄바꿈 뒤를 버린다(SKILL.md 5절). 폐기할 때만
 `paseo stop <id>`다. **호스트가 실행 중 메시지 또는 모드 변경을 막으면 보내지 않고
 보고한다.**
 

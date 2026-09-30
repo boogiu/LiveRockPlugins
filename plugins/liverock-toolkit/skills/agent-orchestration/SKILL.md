@@ -301,8 +301,8 @@ provider·model·mode·thinking을 직접 정해서 아래 대응대로 `paseo r
 
 ## 5. 워커 브리핑
 
-[assets/worker-briefing.md](assets/worker-briefing.md)가 그 템플릿이다. **워커를 띄우기 직전에** 읽고 중괄호 자리를 채워
-`paseo run`의 프롬프트 인수로 넘긴다.
+[assets/worker-briefing.md](assets/worker-briefing.md)가 그 템플릿이다. **워커를 띄우기 직전에** 읽고 중괄호 자리를 채워 실행 디렉터리의 `nodes/{노드 ID}_work/brief.md`로 저장하고(디렉터리가 없으면 만든다),
+`paseo run`의 프롬프트 인수에는 **한 줄만** 넘긴다 — `너는 워커다. {brief.md 경로}를 먼저 읽고 그 지시대로만 수행한다.` 브리핑 본문을 인수로 넘기면 Windows의 `paseo.cmd`(배치 파일)가 첫 줄바꿈 뒤를 버리고 `%`를 변형해, 워커가 첫 줄만 받고 실행된다. 그 한 줄에는 `%`·`"`를 넣지 않는다.
 
 반드시 싣는 것:
 1. 워커 신분과 세션 내 재위임 금지
@@ -346,7 +346,7 @@ provider·model·mode·thinking을 직접 정해서 아래 대응대로 `paseo r
 레벨 2이므로 9절로 간다. 연구 산출물의 검토에서 무엇을 보게 할지는 `research-orchestration` 5절이 정한다.
 
 **검토 노드를 띄우기 직전에** [assets/review-briefing.md](assets/review-briefing.md)를 읽고 중괄호를 채워
-`paseo run`의 프롬프트 인수로 넘긴다.
+5절과 같이 `nodes/{노드 ID}_work/brief.md`로 저장하고 `paseo run`에는 그 파일을 읽으라는 한 줄만 넘긴다.
 
 ## 7. 결과 파일 규약
 
