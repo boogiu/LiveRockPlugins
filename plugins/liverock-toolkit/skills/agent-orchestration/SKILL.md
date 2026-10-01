@@ -267,7 +267,7 @@ CLI를 쓸 수 있는지는 1절 「연결 확인」이 전제 조건으로 이�
 
 - 쓸 수 있는 provider는 `paseo provider ls --json`, 그 provider의 모델은
   `paseo provider models <provider> --json`으로 조회한다.
-- 역할 사이의 차이를 무엇으로 낼지는 `research-orchestration` 3절을 따른다.
+- 역할별 기본 모델·thinking은 `research-orchestration` 3절을 따른다.
 - 전역 `agentProfiles`를 자동으로 바꾸지 않고, 구성한 값의 출처를 보고에 남긴다.
 
 ### 값 구성
@@ -301,7 +301,7 @@ provider·model·mode·thinking을 직접 정해서 아래 대응대로 `paseo r
 ## 5. 워커 브리핑
 
 [assets/worker-briefing.md](assets/worker-briefing.md)가 그 템플릿이다. **워커를 띄우기 직전에** 읽고 중괄호 자리를 채워 실행 디렉터리의 `nodes/{노드 ID}_work/brief.md`로 저장하고(디렉터리가 없으면 만든다),
-`paseo run`의 프롬프트 인수에는 **한 줄만** 넘긴다 — `너는 워커다. {brief.md 경로}를 먼저 읽고 그 지시대로만 수행한다.` 브리핑 본문을 인수로 넘기면 Windows의 `paseo.cmd`(배치 파일)가 첫 줄바꿈 뒤를 버리고 `%`를 변형해, 워커가 첫 줄만 받고 실행된다. 그 한 줄에는 `%`·`"`를 넣지 않는다.
+`paseo run`의 프롬프트 인수에는 **한 줄만** 넘긴다 — `너는 워커다. {brief.md 경로}를 UTF-8로 먼저 읽고 그 지시대로만 수행한다.` 브리핑 본문을 인수로 넘기면 Windows의 `paseo.cmd`(배치 파일)가 첫 줄바꿈 뒤를 버리고 `%`를 변형해, 워커가 첫 줄만 받고 실행된다. 그 한 줄에는 `%`·`"`를 넣지 않는다.
 
 반드시 싣는 것:
 1. 워커 신분과 세션 내 재위임 금지
@@ -471,7 +471,7 @@ provider·model·mode·thinking을 직접 정해서 아래 대응대로 `paseo r
 
 전원 판정이 끝난 뒤 팀장이 내는 최종 취합 보고이며 한 장 요약이다. [assets/final-summary.md](assets/final-summary.md)를 읽고 채워 결과 디렉터리(7절)의 `00_요약.md`로 쓰고 채팅에도 같은 내용을 낸다 — `GRAPH.md` 표와 워커 보고 본문은 옮기지 않는다. 결론이 그 밑에 묻히기 때문이다.
 템플릿 「진행 과정」에 작업별 상태(`완료`·`실패`·`미기동`·`생략`)와 완료된 결과 파일 경로를 내고, 침묵한 사건 중 아래는 **반드시** 넣는다.
-`00_요약.md`를 쓴 뒤 이번 실행의 워커를 `GRAPH.md`의 `agentId`마다 `paseo archive <id>`로 보관한다 — 남겨 두면 Paseo 워크스페이스와 Codex 앱 대화 목록에 워커가 쌓인다. 팀장 자신과, 「사용자가 결정·확인할 것」의 답에 따라 재작업을 맡을 워커는 보관하지 않는다. 보관이 실패해도 보고는 그대로 낸다.
+요약의 「사용량」은 `python scripts/run_usage.py <GRAPH.md>`의 워커별 토큰 표로 채운다(보관 전에 돌린다). `00_요약.md`를 쓴 뒤 이번 실행의 워커를 `GRAPH.md`의 `agentId`마다 `paseo archive <id>`로 보관한다 — 남겨 두면 Paseo 워크스페이스와 Codex 앱 대화 목록에 워커가 쌓인다. 팀장 자신과, 「사용자가 결정·확인할 것」의 답에 따라 재작업을 맡을 워커는 보관하지 않는다. 보관이 실패해도 보고는 그대로 낸다.
 
 - 위임 게이트에 걸려 팀장이 직접 처리한 단위와 그 사실.
 - 저장된 프로필 없이 값을 직접 구성한 노드와 그 사실.
