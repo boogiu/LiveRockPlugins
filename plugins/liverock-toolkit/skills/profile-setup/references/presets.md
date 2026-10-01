@@ -183,7 +183,7 @@ provider의 모델로 치환하지 않는다.
 | `literature-search` | 문헌 탐색 | 저성능 / `low` | codex / `gpt-5.6-terra` / `low` | 중급 / `low` | 명령 전권 | search / sky |
 | `paper-reading` | 논문 정독 | 중급 / `medium` | claude / `claude-sonnet-5` / `high` | 고성능 / `high` | 파일 작성 | book / indigo |
 | `data-prep` | 데이터 정리 | 저성능 / `low` | codex / `gpt-5.6-terra` / `medium` | 중급 / `medium` | 파일 작성 | database / teal |
-| `calculation-modeling` | 계산·모델링 | 중급 / `high` | codex / `gpt-5.6-sol` / `high` | 고성능 / `high` | 파일 작성 | cpu / blue |
+| `calculation-modeling` | 계산·모델링 | 중급 / `high` | codex / `gpt-6.1-sol` / `high` | 고성능 / `high` | 파일 작성 | cpu / blue |
 | `visualization` | 시각화 | 중급 / `medium` | codex / `gpt-5.6-terra` / `high` | 중급 / `high` | 파일 작성 | palette / pink |
 | `experiment-plan` | 실험 계획 | 고성능 / `high` | claude / `claude-opus-5-5` / `high` | 최상위 / `high` | 파일 작성 | flask / amber |
 | `independent-check` | 독립 검토 | 고성능 / `high` | claude / `claude-opus-5-5` / `xhigh` | 최상위 / `xhigh` | 읽기·확인 | eye / emerald |

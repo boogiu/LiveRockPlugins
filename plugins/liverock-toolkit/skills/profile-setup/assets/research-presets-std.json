@@ -36,7 +36,7 @@
     "id": "calculation-modeling",
     "name": "계산·모델링",
     "provider": "codex",
-    "model": "gpt-5.6-sol",
+    "model": "gpt-6.1-sol",
     "modeId": "auto",
     "thinkingOptionId": "high",
     "icon": "cpu",

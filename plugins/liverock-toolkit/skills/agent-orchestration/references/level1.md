@@ -58,7 +58,7 @@ config:
 ---
 flowchart TD
     N1["[ N1 · 문헌 탐색 ]<br/>gpt-5.6-luna<br/>CO2 흡착 촉매 문헌 수집"]
-    N2["[ N2 · 독립 검토 ]<br/>gpt-5.6-sol<br/>반응 조건표 검토"]
+    N2["[ N2 · 독립 검토 ]<br/>gpt-6.1-sol<br/>반응 조건표 검토"]
     N3["[ N3 · 계산·모델링 ]<br/>gpt-5.6-terra<br/>흡착 등온선 회귀 실행"]
     N4["[ N4 · 데이터 정리 ]<br/>gpt-5.6-terra<br/>원본 실험 데이터셋 정리"]
 ```
